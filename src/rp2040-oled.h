@@ -84,6 +84,18 @@ typedef struct _rp2040_oled {
         uint8_t            height;
         bool               invert;
         rp2040_oled_flip_t flip;
+        uint8_t            *gdram;
+        size_t             gdram_size;
+        struct {
+                uint8_t x;
+                uint8_t y;
+        } cursor;
+        struct {
+                uint8_t x;
+                uint8_t y;
+                uint8_t width;
+                uint8_t height;
+        } dirty_area;
 } rp2040_oled_t;
 
 const uint8_t font_6x8[] = {
