@@ -645,11 +645,9 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t
         orig_pages = (height + PAGE_BITS - 1) / PAGE_BITS;
         final_pages = orig_pages;
 
-        if ((y + yshift) % PAGE_BITS != 0) {
+        if ((y % PAGE_BITS != 0) || yshift != 0) {
                 uint8_t yoffset = (y + yshift) % PAGE_BITS;
-                uint8_t pshift = (yshift + PAGE_BITS - 1) / PAGE_BITS;
-        //if (y % PAGE_BITS != 0) {
-                //uint8_t yoffset = y % PAGE_BITS;
+                uint8_t pshift = yshift / PAGE_BITS;
                 final_pages = (height + yoffset + PAGE_BITS - 1) / PAGE_BITS;
                 osprite_size = orig_width * final_pages;
                 osprite = malloc(osprite_size);
@@ -657,13 +655,18 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t
                 final_sprite = osprite;
                 for (uint8_t cur_page = 0; cur_page < final_pages; cur_page++) {
                         for (uint8_t cur_x = 0; cur_x < orig_width; cur_x++) {
-                                if (cur_page > 0)
-                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (pshift + cur_page - 1) * orig_width] >> (PAGE_BITS - yoffset);
-                                        //osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (cur_page - 1) * orig_width] >> (PAGE_BITS - yoffset);
+                                if (y != 0) {
+                                        if ((cur_page) > 0)
+                                                osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (cur_page - 1) * orig_width] >> (PAGE_BITS - yoffset);
 
-                                if (cur_page < orig_pages)
-                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (pshift + cur_page) * orig_width] << yoffset;
-                                        //osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + cur_page * orig_width] << yoffset;
+                                        if (cur_page < orig_pages)
+                                                osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + cur_page * orig_width] << yoffset;
+                                } else {
+                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (pshift + cur_page) * orig_width] >> yoffset;
+
+                                        if (cur_page < orig_pages)
+                                                osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (pshift + cur_page + 1) * orig_width] << (PAGE_BITS - yoffset);
+                                }
                         }
                 }
         }
