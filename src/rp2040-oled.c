@@ -521,8 +521,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uint8_t 
         uint8_t bit_mask = (color == OLED_COLOR_WHITE) ? 0x00 : 0xff;
         uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
 
-        if (x0 < 0 || x1 < 0 || y0 < 0 || y1 < 0 || x0 >= oled->width ||
-            x1 >= oled->width || y0 >= oled->height || y1 >= oled->height)
+        if (x0 >= oled->width || x1 >= oled->width || y0 >= oled->height || y1 >= oled->height)
                 return false;
 
         if (x0 == x1) {
@@ -649,6 +648,8 @@ bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uin
 
         if (render)
                 rp2040_oled_flush(oled);
+
+        return true;
 }
 
 bool rp2040_oled_clear(rp2040_oled_t *oled)

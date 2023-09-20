@@ -11,6 +11,8 @@ project(rp2040-oled)
 # initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
 
+add_compile_options(-Wall -Wtype-limits)
+
 add_library(rp2040-oled
     src/rp2040-oled.c
     src/rp2040-oled.h
