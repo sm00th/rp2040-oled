@@ -100,7 +100,7 @@ static bool rp2040_oled_write_command_with_arg(rp2040_oled_t *oled, uint8_t cmd,
 static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t size,
                                     bool render)
 {
-        size_t gdram_offset = oled->cursor.x * oled->cursor.y / 8;
+        size_t gdram_offset = oled->cursor.x * oled->cursor.y;
         if (gdram_offset + size > oled->gdram_size)
                 return false;
 
@@ -114,6 +114,9 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
                 oled->cursor.y += 1;
                 oled->cursor.x -= oled->width;
         }
+
+        if (!render)
+                return true;
 
         return rp2040_i2c_write(oled, buf - 1, size + 1) != size + 1;
 }
