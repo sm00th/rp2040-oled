@@ -1,7 +1,10 @@
-#include "rp2040-oled.h"
+#include <stdlib.h>
+#include <string.h>
 #include "hardware/gpio.h"
 #include "hardware/i2c.h"
 #include "pico/error.h"
+
+#include "rp2040-oled.h"
 
 static void rp2040_i2c_init(rp2040_oled_t *oled)
 {
@@ -257,8 +260,60 @@ rp2040_oled_type_t rp2040_oled_init(rp2040_oled_t *oled)
         return type;
 }
 
+static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y)
+{
+        uint8_t buf[4];
+
+        y /= 8;
+
+        if (oled->size == OLED_64x32) {
+                x += 32;
+                if (oled->flip == 0)
+                        y += 4;
+        } else if (oled->size == OLED_132x64) {
+                x += 2;
+        } else if (oled->size == OLED_96x16) {
+                if (oled->flip == 0)
+                        y += 2;
+                else
+                        x += 32;
+        } else if (oled->size == OLED_72x40) {
+                x += 28;
+                if (oled->flip == 0)
+                        y += 3;
+        }
+
+        buf[0] = 0x00;
+        buf[1] = OLED_CMD_SET_PAGE_ADDR | y;
+        buf[2] = OLED_CMD_SET_LC_ADDR | (x & 0x0f);
+        buf[2] = OLED_CMD_SET_HC_ADDR | (x >> 4);
+
+        rp2040_i2c_write(oled, buf, sizeof(buf));
+}
+
 static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte)
 {
+        bool ret = true;
+        uint8_t *fill_buf;
+        size_t fill_buf_size = (oled->height * oled->width) / 8 + 1;
+
+        fill_buf = malloc(fill_buf_size);
+        memset(fill_buf, fill_byte, fill_buf_size);
+        fill_buf[0] = OLED_CB_DATA_BIT;
+
+        if (!rp2040_oled_set_position(oled, 0, 0)) {
+                free(fill_buf);
+                return false;
+        }
+
+        /* TODO: figure out if it will wrap on its own or we need to swith pages manually */
+        if (!rp2040_i2c_write(oled, fill_buf, fill_buf_size)) {
+                free(fill_buf);
+                return false;
+        }
+
+        free(fill_buf);
+        return ret;
 }
 
 bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast)
@@ -269,4 +324,34 @@ bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast)
 bool rp2040_oled_set_power(rp2040_oled_t *oled, bool enabled)
 {
         return rp2040_oled_write_command(oled, enabled ? OLED_CMD_DISPLAY_ON : OLED_CMD_DISPLAY_OFF);
+}
+
+bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg, size_t len)
+{
+        uint8_t *buf;
+        size_t buf_size = len * 6 + 1;
+        size_t i = 0;
+        if (x >= oled->width || y >= oled->height)
+                return false;
+
+        buf = malloc(buf_size);
+        memset(buf, 0x00, buf_size);
+        buf[0] = OLED_CB_DATA_BIT;
+
+        rp2040_oled_set_position(oled, x, y);
+
+        for (i = 0; i < len; i++) {
+                uint8_t font_index = msg[i] - 32;
+
+                buf[1 + (i * 6)] = 0x00;
+                memcpy(buf + (2 + (i * 6)), font_6x8 + (font_index * 5), 5);
+        }
+
+        if (!rp2040_i2c_write(oled, buf, buf_size)) {
+                free(buf);
+                return false;
+        }
+
+        free(buf);
+        return true;
 }
