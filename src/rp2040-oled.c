@@ -637,7 +637,7 @@ bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uin
                 rp2040_oled_draw_line(oled, x0, y0, x0, y1, color, false);
                 rp2040_oled_draw_line(oled, x0, y0, x1, y0, color, false);
                 rp2040_oled_draw_line(oled, x1, y0, x1, y1, color, false);
-                rp2040_oled_draw_line(oled, x0, y1, x0, y1, color, false);
+                rp2040_oled_draw_line(oled, x0, y1, x1, y1, color, false);
         } else {
                 for (uint8_t x = x0; x <= x1; x++) {
                         rp2040_oled_draw_line(oled, x, y0, x, y1, color, false);
