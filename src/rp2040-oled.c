@@ -608,22 +608,22 @@ bool rp2040_oled_clear(rp2040_oled_t *oled)
         return rp2040_oled_fill(oled, 0x00);
 }
 
-bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
+bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t x,
                              uint8_t y, uint8_t width, uint8_t height, rp2040_oled_color_t color)
 {
         bool ret = true;
         uint8_t *buf;
         size_t buf_size;
         uint8_t orig_width = width;
-        uint8_t *final_sprite = sprite;
+        const uint8_t *final_sprite = sprite;
         uint8_t final_pages = height / 8;
         uint8_t *osprite = NULL;
-        size_t osprite_size = width * (height + 8) / 8;
+        size_t osprite_size = width * ((height / 8) + 1);
 
-        if (x + width >= oled->width)
+        if (x + width > oled->width)
                 width = oled->width - x;
 
-        if (y + height >= oled->height)
+        if (y + height > oled->height)
                 height = oled->height - y;
 
         if (y % 8 != 0) {
@@ -633,9 +633,10 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
                 for (uint8_t cur_page = 0; cur_page < height / 8; cur_page++) {
                         for (uint8_t cur_x = 0; cur_x < width; cur_x++) {
                                 if (cur_page > 0)
-                                        osprite[cur_x + cur_page * width] |= sprite[cur_x + (cur_page - 1) * width] << (8 - yoffset);
+                                        osprite[cur_x + cur_page * width] |= sprite[cur_x + (cur_page - 1) * width] >> (8 - yoffset);
 
-                                osprite[cur_x + cur_page * width] |= sprite[cur_x + cur_page * width] >> yoffset;
+                                if (cur_page < height / 8)
+                                        osprite[cur_x + cur_page * width] |= sprite[cur_x + cur_page * width] << yoffset;
                         }
                 }
                 final_sprite = osprite;
@@ -661,5 +662,39 @@ out:
         rp2040_oled_free_data_buf(buf);
         if (osprite)
                 free(osprite);
+        return ret;
+}
+
+bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
+                                     uint8_t y, uint8_t width, uint8_t height, uint8_t pitch,
+                                     rp2040_oled_color_t color)
+{
+        bool ret = true;
+        uint8_t *mem_sprite = NULL;
+        size_t mem_sprite_size = width * (height / 8);
+
+        mem_sprite = malloc(mem_sprite_size);
+        memset(mem_sprite, 0x00, mem_sprite_size);
+
+        for (uint8_t cy = 0; cy < height; cy++) {
+                uint8_t cpage = cy / 8;
+                uint8_t sx = 0;
+                uint8_t *src = sprite + (cy * pitch);
+                uint8_t *dst = mem_sprite + (cpage * oled->width);
+                uint8_t src_mask = 0x80;
+                uint8_t dst_mask = 1 << (cy & 7);
+                for (uint8_t dx = 0; dx < width; dx++) {
+                        if (*(src + sx) & src_mask)
+                                *(dst + dx) |= dst_mask;
+                        src_mask >>= 1;
+                        if (!src_mask) {
+                                src_mask = 0x80;
+                                sx++;
+                        }
+                }
+        }
+
+        ret = rp2040_oled_draw_sprite(oled, mem_sprite, x, y, width, height, color);
+        free(mem_sprite);
         return ret;
 }
