@@ -439,6 +439,45 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, uint8_t co
         return rp2040_oled_write_gdram(oled, &buf, 1, true);
 }
 
+bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t x1,
+                           uint8_t y0, uint8_t y1, uint8_t color) {
+        uint8_t dx = abs(x1 - x0);
+        uint8_t dy = -abs(y1 - y0);
+        uint8_t sx = x0 < x1 ? 1 : -1;
+        uint8_t sy = y0 < y1 ? 1 : -1;
+        uint16_t err = dx + dy;
+        uint16_t err2;
+
+        if (x0 < 0 || x1 < 0 || y0 < 0 || y1 < 0 || x0 >= oled->width ||
+            x1 >= oled->width || y0 >= oled->height || y1 >= oled->height)
+                return false;
+
+        // TODO: x0 == x1 and y0 == y1 (especially) optimizations
+
+        while(1) {
+                rp2040_oled_set_pixel(oled, x0, y0, color);
+                if (x0 == x1 && y0 == y1)
+                        break;
+
+                err2 = 2 * err;
+                if (err2 >= dy) {
+                        if (x0 == x1)
+                                break;
+                        err = err + dy;
+                        x0 = x0 + sx;
+                }
+
+                if (err2 <= dx) {
+                        if (y0 == y1)
+                                break;
+                        err = err + dx;
+                        y0 = y0 + sy;
+                }
+                
+        }
+        return true;
+}
+
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
                              uint8_t y, uint8_t width, uint8_t height)
 {
