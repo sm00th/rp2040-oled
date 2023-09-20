@@ -302,4 +302,8 @@ uint8_t oled72_initbuf[] = {
 rp2040_oled_type_t rp2040_oled_init(rp2040_oled_t *oled);
 bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast);
 bool rp2040_oled_set_power(rp2040_oled_t *oled, bool enabled);
-bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg, size_t len);
+bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg,
+                              size_t len);
+bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, uint8_t color);
+bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
+                             uint8_t y, uint8_t width, uint8_t height);

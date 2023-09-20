@@ -411,7 +411,31 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
         return true;
 }
 
-bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
+bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, uint8_t color)
+{
+        uint8_t page = y / 8;
+        uint8_t page_offset = y % 8;
+        uint8_t bit_mask = 1 << page_offset;
+        uint8_t buf;
+
+        if (x > oled->width || y > oled->height)
+                return false;
+
+        buf = oled->gdram[x + (page * oled->width)];
+        if (!!color)
+                buf |= bit_mask;
+        else
+                buf &= ~bit_mask;
+
+        if (!rp2040_oled_set_position(oled, x, page * 8)) {
+                return false;
+        }
+
+        return rp2040_oled_write_gdram(oled, &buf, 1, true);
+}
+
+bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
+                             uint8_t y, uint8_t width, uint8_t height)
 {
         bool ret = true;
         uint8_t *buf;
