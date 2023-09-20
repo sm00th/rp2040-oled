@@ -435,18 +435,16 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, rp2040_ole
         uint8_t page = y / 8;
         uint8_t page_offset = y % 8;
         uint8_t bit_mask = 1 << page_offset;
-        uint8_t *buf;
-
-        buf = rp2040_oled_alloc_data_buf(1);
+        uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
 
         if (x >= oled->width || y >= oled->height)
                 return false;
 
-        *buf = oled->gdram[x + (page * oled->width)];
+        buf[1] = oled->gdram[x + (page * oled->width)];
         if (color == OLED_COLOR_WHITE) {
-                *buf |= bit_mask;
+                buf[1] |= bit_mask;
         } else if (OLED_COLOR_BLACK) {
-                *buf &= ~bit_mask;
+                buf[1] &= ~bit_mask;
         } else {
                 rp2040_oled_free_data_buf(buf);
                 return false;
@@ -457,10 +455,9 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, rp2040_ole
                 return false;
         }
 
-        if (!rp2040_oled_write_gdram(oled, buf, 1, color, true))
+        if (!rp2040_oled_write_gdram(oled, buf + 1, 1, color, true))
                 ret = false;
 
-        rp2040_oled_free_data_buf(buf);
         return ret;
 }
 
@@ -473,44 +470,60 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
         int16_t err = dx + dy;
         int16_t err2;
         uint8_t bit_mask = 0x00;
+        uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
 
         if (x0 < 0 || x1 < 0 || y0 < 0 || y1 < 0 || x0 >= oled->width ||
             x1 >= oled->width || y0 >= oled->height || y1 >= oled->height)
                 return false;
 
-        // TODO: x0 == x1 and y0 == y1 (especially) optimizations
         if (x0 == x1) {
                 if (y0 / 8 == y1 / 8) {
                         for (uint8_t y = y0; y != y1; y += sy) {
                                 bit_mask |= 1 << (sy == 1 ? y % 8 : 8 - y % 8);
                         }
                         rp2040_oled_set_position(oled, x0, y0);
-                        rp2040_oled_write_gdram(oled, &bit_mask, 1, color, true);
+                        buf[1] = bit_mask;
+                        rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
                 } else {
-                        uint8_t tshift = y0 % 8;
-                        uint8_t bshift = y1 % 8;
-
-                        for (uint8_t y = y0; y != y0 + (sy == 1 ? tshift : -tshift); y += sy) {
-                                bit_mask |= 1 << (sy == 1 ? y % 8 : 8 - y % 8);
+                        uint8_t tshift, bshift, y;
+                        if (y0 > y1) {
+                                y = y1;
+                                y1 = y0;
+                                y0 = y;
                         }
 
-                        rp2040_oled_set_position(oled, x0, y0);
-                        rp2040_oled_write_gdram(oled, &bit_mask, 1, color, true);
+                        tshift = 8 - y0 % 8;
+                        bshift = y1 % 8;
+                        y = y0;
 
-                        /* This is so likely to lockup here... */
-                        for (uint8_t y = y0 + (sy == 1 ? tshift : -tshift) + sy;
-                             y != y1 - (sy == 1 ? bshift : -bshift); y += 8 * sy) {
-                                bit_mask = 0xff;
-                                rp2040_oled_set_position(oled, x0, y0);
-                                rp2040_oled_write_gdram(oled, &bit_mask, 1, color, true);
+                        if (tshift) {
+                                bit_mask = 0x00;
+                                for (uint8_t i = 0; i < tshift; i++) {
+                                        bit_mask |= 1 << (7 - i);
+                                }
+                                rp2040_oled_set_position(oled, x0, y);
+                                buf[1] = bit_mask;
+                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
+                                y += tshift;
                         }
 
-                        for (uint8_t y = y1 - (sy == 1 ? bshift : -bshift) + sy;
-                                y != y1; y += sy) {
-                                bit_mask |= 1 << (sy == 1 ? 8 - y % 8 : y % 8);
+                        buf[1] = 0xff;
+                        while (y / 8 < y1 / 8) {
+                                rp2040_oled_set_position(oled, x0, y);
+                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
+                                y += 8;
                         }
-                        rp2040_oled_set_position(oled, x0, y0);
-                        rp2040_oled_write_gdram(oled, &bit_mask, 1, color, true);
+
+                        if (bshift) {
+                                bit_mask = 0x00;
+                                for (uint8_t i = 0; i < bshift; i++) {
+                                        bit_mask |= 1 << i;
+                                }
+                                rp2040_oled_set_position(oled, x0, y);
+                                buf[1] = bit_mask;
+                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
+                                y += bshift;
+                        }
                 }
                 return true;
         }
