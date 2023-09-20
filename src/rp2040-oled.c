@@ -104,6 +104,9 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
         if (gdram_offset + size > oled->gdram_size)
                 return false;
 
+        for (size_t i = 0; i < size; i++) {
+                buf[i] = buf[i] | *(oled->gdram + gdram_offset + i);
+        }
         memcpy(oled->gdram + gdram_offset, buf, size);
 
         /* TODO: if real screens don't wrap do not either */
