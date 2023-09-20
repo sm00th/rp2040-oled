@@ -466,12 +466,12 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, rp2040_ole
 
 bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                            uint8_t x1, uint8_t y1, rp2040_oled_color_t color) {
-        uint8_t dx = abs(x1 - x0);
-        uint8_t dy = -abs(y1 - y0);
-        uint8_t sx = x0 < x1 ? 1 : -1;
-        uint8_t sy = y0 < y1 ? 1 : -1;
-        uint16_t err = dx + dy;
-        uint16_t err2;
+        int16_t dx = abs(x1 - x0);
+        int16_t dy = -abs(y1 - y0);
+        int8_t sx = x0 < x1 ? 1 : -1;
+        int8_t sy = y0 < y1 ? 1 : -1;
+        int16_t err = dx + dy;
+        int16_t err2;
         uint8_t bit_mask = 0x00;
 
         if (x0 < 0 || x1 < 0 || y0 < 0 || y1 < 0 || x0 >= oled->width ||
