@@ -616,9 +616,10 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
         size_t buf_size;
         uint8_t orig_width = width;
         const uint8_t *final_sprite = sprite;
-        uint8_t final_pages = (height + 8 - 1) / 8;
+        uint8_t orig_pages = (height + 8 - 1) / 8;
+        uint8_t final_pages = orig_pages;
         uint8_t *osprite = NULL;
-        size_t osprite_size = width * (((height + 8 - 1) / 8) + 1);
+        size_t osprite_size;
 
         if (x + width > oled->width)
                 width = oled->width - x;
@@ -628,16 +629,17 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
 
         if (y % 8 != 0) {
                 uint8_t yoffset = y % 8;
+                final_pages = (height + (yoffset) + 8 - 1) / 8;
+                osprite_size = width * final_pages;
                 osprite = malloc(osprite_size);
                 memset(osprite, 0x00, osprite_size);
                 final_sprite = osprite;
-                final_pages++;
                 for (uint8_t cur_page = 0; cur_page < final_pages; cur_page++) {
                         for (uint8_t cur_x = 0; cur_x < width; cur_x++) {
                                 if (cur_page > 0)
                                         osprite[cur_x + cur_page * width] |= sprite[cur_x + (cur_page - 1) * width] >> (8 - yoffset);
 
-                                if (cur_page < height / 8)
+                                if (cur_page < orig_pages)
                                         osprite[cur_x + cur_page * width] |= sprite[cur_x + cur_page * width] << yoffset;
                         }
                 }
