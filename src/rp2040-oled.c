@@ -288,7 +288,7 @@ static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y)
         buf[2] = OLED_CMD_SET_LC_ADDR | (x & 0x0f);
         buf[2] = OLED_CMD_SET_HC_ADDR | (x >> 4);
 
-        rp2040_i2c_write(oled, buf, sizeof(buf));
+        return rp2040_i2c_write(oled, buf, sizeof(buf)) == sizeof(buf);
 }
 
 static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte)
@@ -307,7 +307,7 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte)
         }
 
         /* TODO: figure out if it will wrap on its own or we need to swith pages manually */
-        if (!rp2040_i2c_write(oled, fill_buf, fill_buf_size)) {
+        if (rp2040_i2c_write(oled, fill_buf, fill_buf_size) != fill_buf_size) {
                 free(fill_buf);
                 return false;
         }
@@ -334,11 +334,12 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
         if (x >= oled->width || y >= oled->height)
                 return false;
 
+        if (!rp2040_oled_set_position(oled, x, y))
+                return false;
+
         buf = malloc(buf_size);
         memset(buf, 0x00, buf_size);
         buf[0] = OLED_CB_DATA_BIT;
-
-        rp2040_oled_set_position(oled, x, y);
 
         for (i = 0; i < len; i++) {
                 uint8_t font_index = msg[i] - 32;
@@ -347,9 +348,43 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
                 memcpy(buf + (2 + (i * 6)), font_6x8 + (font_index * 5), 5);
         }
 
-        if (!rp2040_i2c_write(oled, buf, buf_size)) {
+        if (rp2040_i2c_write(oled, buf, buf_size) != buf_size) {
                 free(buf);
                 return false;
+        }
+
+        free(buf);
+        return true;
+}
+
+bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
+{
+        uint8_t *buf;
+        size_t buf_size;
+        uint8_t orig_width = width;
+
+        if (x + width > oled->width)
+                width = oled->width - x;
+
+        if (y + height > oled->height)
+                height = oled->height - y;
+
+        /* TODO: mod8 magic shifts */
+
+        buf_size = width + 1;
+        buf = malloc(buf_size);
+        buf[0] = OLED_CB_DATA_BIT;
+
+        for (uint8_t cury = 0; cury < height; cury += 8) {
+                if (!rp2040_oled_set_position(oled, x, cury)) {
+                        free(buf);
+                        return false;
+                }
+                memcpy(buf + 1, sprite + (cury * orig_width), width);
+                if (rp2040_i2c_write(oled, buf, buf_size) != buf_size) {
+                        free(buf);
+                        return false;
+                }
         }
 
         free(buf);
