@@ -154,7 +154,7 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
         return rp2040_i2c_write(oled, buf - 1, size + 1) == size + 1;
 }
 
-static bool rp2040_oled_flush(rp2040_oled_t *oled)
+bool rp2040_oled_flush(rp2040_oled_t *oled)
 {
         uint8_t *buf;
         uint8_t width = oled->dirty_area.x1 - oled->dirty_area.x0;
@@ -471,7 +471,8 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
         return true;
 }
 
-bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, rp2040_oled_color_t color)
+bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
+                           rp2040_oled_color_t color, bool render)
 {
         bool ret = true;
         uint8_t page = y / 8;
@@ -493,7 +494,7 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y, rp2040_ole
         if (!rp2040_oled_set_position(oled, x, page * 8))
                 return false;
 
-        if (!rp2040_oled_write_gdram(oled, buf + 1, 1, color, true))
+        if (!rp2040_oled_write_gdram(oled, buf + 1, 1, color, render))
                 ret = false;
 
         return ret;
@@ -541,14 +542,14 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                                 }
                                 rp2040_oled_set_position(oled, x0, y);
                                 buf[1] = bit_mask;
-                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
+                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, false);
                                 y += tshift;
                         }
 
                         buf[1] = 0xff;
                         while (y / 8 < y1 / 8) {
                                 rp2040_oled_set_position(oled, x0, y);
-                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
+                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, false);
                                 y += 8;
                         }
 
@@ -559,15 +560,17 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                                 }
                                 rp2040_oled_set_position(oled, x0, y);
                                 buf[1] = bit_mask;
-                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, true);
+                                rp2040_oled_write_gdram(oled, buf + 1, 1, color, false);
                                 y += bshift;
                         }
+
+                        rp2040_oled_flush(oled);
                 }
                 return true;
         }
 
         while(1) {
-                rp2040_oled_set_pixel(oled, x0, y0, color);
+                rp2040_oled_set_pixel(oled, x0, y0, color, false);
                 if (x0 == x1 && y0 == y1)
                         break;
 
@@ -587,6 +590,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                 }
                 
         }
+        rp2040_oled_flush(oled);
         return true;
 }
 
