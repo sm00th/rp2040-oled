@@ -694,7 +694,7 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, uint8
                 uint8_t cpage = cy / 8;
                 uint8_t sx = 0;
                 uint8_t *src = sprite + (cy * pitch);
-                uint8_t *dst = mem_sprite + (cpage * oled->width);
+                uint8_t *dst = mem_sprite + (cpage * width);
                 uint8_t src_mask = 0x80;
                 uint8_t dst_mask = 1 << (cy & 7);
                 for (uint8_t dx = 0; dx < width; dx++) {
