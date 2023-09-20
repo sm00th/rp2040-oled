@@ -787,7 +787,7 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, int16
 }
 
 bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y, uint8_t r,
-                                rp2040_oled_color_t color, bool fill, bool render)
+                             rp2040_oled_color_t color, bool fill, bool render)
 {
         uint8_t dx = r, dy = 0;
         int16_t t1 = r / 16;
@@ -821,4 +821,49 @@ bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y, uint8_t 
 
         if (render)
                 rp2040_oled_flush(oled);
+
+        return true;
+}
+
+bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y, uint8_t rx,
+                              uint8_t ry, rp2040_oled_color_t color, bool fill,
+                              bool render)
+{
+        uint32_t rx2, ry2, rxy2;
+        uint8_t x0 = rx, x1, sx = 0;
+
+        if (rx == ry)
+                return rp2040_oled_draw_circle(oled, x, y, rx, color, fill, render);
+
+        rx2 = rx * rx;
+        ry2 = ry * ry;
+        rxy2 = rx2 * ry2;
+
+        for (uint8_t dy = 1; dy <= ry; dy ++) {
+                for (x1 = (x0 - (sx - 1)); x1 > 0; x1--)
+                        if (x1 * x1 * rx2 + dy * dy * ry2 <= rxy2)
+                                break;
+
+                sx = x0 - x1;
+                x0 = x1;
+
+                for (uint8_t dx = 0; dx <= x0; dx++) {
+                        if (fill) {
+                                rp2040_oled_draw_line(oled, x + dx, y - dy,
+                                                      x + dx, y + dy, color, false);
+                                rp2040_oled_draw_line(oled, x - dx, y - dy,
+                                                      x - dx, y + dy, color, false);
+                        } else {
+                                rp2040_oled_set_pixel(oled, x + dx, y - dy, color, false);
+                                rp2040_oled_set_pixel(oled, x + dx, y + dy, color, false);
+                                rp2040_oled_set_pixel(oled, x - dx, y - dy, color, false);
+                                rp2040_oled_set_pixel(oled, x - dx, y + dy, color, false);
+                        }
+                }
+        }
+
+        if (render)
+                rp2040_oled_flush(oled);
+
+        return true;
 }
