@@ -115,7 +115,7 @@ static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y)
 {
         uint8_t buf[4];
 
-        y /= 8;
+        y /= PAGE_BITS;
 
         if (oled->size == OLED_64x32) {
                 x += 32;
@@ -203,7 +203,7 @@ bool rp2040_oled_flush(rp2040_oled_t *oled)
         for (uint8_t y = oled->dirty_area.y0; y <= oled->dirty_area.y1; y++) {
                 size_t gdram_offset = oled->dirty_area.x0 + (y * oled->width);
                 memcpy(buf, oled->gdram + gdram_offset, width);
-                if (!rp2040_oled_set_position(oled, oled->dirty_area.x0, y * 8)) {
+                if (!rp2040_oled_set_position(oled, oled->dirty_area.x0, y * PAGE_BITS)) {
                         return false;
                 }
                 if (rp2040_i2c_write(oled, buf - 1, width + 1) != width + 1) {
@@ -301,7 +301,7 @@ static int rp2040_oled_display_init(rp2040_oled_t *oled)
         else if (oled->flip & FLIP_VERTICAL)
                 rp2040_oled_write_command(oled, OLED_CMD_SET_SCAN_DIR_NORMAL);
 
-        oled->gdram_size = oled->width * oled->height / 8;
+        oled->gdram_size = oled->width * oled->height / PAGE_BITS;
         oled->gdram = malloc(oled->gdram_size);
         memset(oled->gdram, 0x00, oled->gdram_size);
 
@@ -425,7 +425,7 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte)
         fill_buf = rp2040_oled_alloc_data_buf(fill_buf_size);
         memset(fill_buf, fill_byte, fill_buf_size);
 
-        for (uint8_t y = 0; y < oled->height; y += 8) {
+        for (uint8_t y = 0; y < oled->height; y += PAGE_BITS) {
                 if (!rp2040_oled_set_position(oled, 0, y)) {
                         rp2040_oled_free_data_buf(fill_buf);
                         return false;
@@ -484,8 +484,8 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
                            rp2040_oled_color_t color, bool render)
 {
         bool ret = true;
-        uint8_t page = y / 8;
-        uint8_t page_offset = y % 8;
+        uint8_t page = y / PAGE_BITS;
+        uint8_t page_offset = y % PAGE_BITS;
         uint8_t bit_mask = 1 << page_offset;
         uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
 
@@ -500,7 +500,7 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
         else
                 return false;
 
-        if (!rp2040_oled_set_position(oled, x, page * 8))
+        if (!rp2040_oled_set_position(oled, x, page * PAGE_BITS))
                 return false;
 
         if (!rp2040_oled_write_gdram(oled, buf + 1, 1, color, render))
@@ -525,9 +525,9 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                 return false;
 
         if (x0 == x1) {
-                if (y0 / 8 == y1 / 8) {
+                if (y0 / PAGE_BITS == y1 / PAGE_BITS) {
                         for (uint8_t y = y0; y != y1; y += sy) {
-                                bit_mask |= 1 << (sy == 1 ? y % 8 : 8 - y % 8);
+                                bit_mask |= 1 << (sy == 1 ? y % PAGE_BITS : PAGE_BITS - y % PAGE_BITS);
                         }
                         rp2040_oled_set_position(oled, x0, y0);
                         buf[1] = bit_mask;
@@ -540,14 +540,14 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                                 y0 = y;
                         }
 
-                        tshift = 8 - y0 % 8;
-                        bshift = y1 % 8;
+                        tshift = PAGE_BITS - y0 % PAGE_BITS;
+                        bshift = y1 % PAGE_BITS;
                         y = y0;
 
                         if (tshift) {
                                 bit_mask = 0x00;
                                 for (uint8_t i = 0; i < tshift; i++) {
-                                        bit_mask |= 1 << (7 - i);
+                                        bit_mask |= 1 << ((PAGE_BITS - 1) - i);
                                 }
                                 rp2040_oled_set_position(oled, x0, y);
                                 buf[1] = bit_mask;
@@ -556,10 +556,10 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                         }
 
                         buf[1] = 0xff;
-                        while (y / 8 < y1 / 8) {
+                        while (y / PAGE_BITS < y1 / PAGE_BITS) {
                                 rp2040_oled_set_position(oled, x0, y);
                                 rp2040_oled_write_gdram(oled, buf + 1, 1, color, false);
-                                y += 8;
+                                y += PAGE_BITS;
                         }
 
                         if (bshift) {
@@ -608,8 +608,8 @@ bool rp2040_oled_clear(rp2040_oled_t *oled)
         return rp2040_oled_fill(oled, 0x00);
 }
 
-bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t x,
-                             uint8_t y, uint8_t width, uint8_t height, rp2040_oled_color_t color)
+bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t x,
+                             int16_t y, uint8_t width, uint8_t height, rp2040_oled_color_t color)
 {
         bool ret = true;
         uint8_t *buf;
@@ -619,6 +619,22 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
         uint8_t orig_pages, final_pages;
         uint8_t *osprite = NULL;
         size_t osprite_size;
+        uint8_t xshift = 0, yshift = 0;
+
+        if (x + width < 0 || y + height < 0)
+                return false;
+
+        if (x < 0) {
+                width += x;
+                xshift = -x;
+                x = 0;
+        }
+
+        if (y < 0) {
+                height += y;
+                yshift = -y;
+                y = 0;
+        }
 
         if (x + width > oled->width)
                 width = oled->width - x;
@@ -626,12 +642,15 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
         if (y + height > oled->height)
                 height = oled->height - y;
 
-        orig_pages = (height + 8 - 1) / 8;
+        orig_pages = (height + PAGE_BITS - 1) / PAGE_BITS;
         final_pages = orig_pages;
 
-        if (y % 8 != 0) {
-                uint8_t yoffset = y % 8;
-                final_pages = (height + (yoffset) + 8 - 1) / 8;
+        if ((y + yshift) % PAGE_BITS != 0) {
+                uint8_t yoffset = (y + yshift) % PAGE_BITS;
+                uint8_t pshift = (yshift + PAGE_BITS - 1) / PAGE_BITS;
+        //if (y % PAGE_BITS != 0) {
+                //uint8_t yoffset = y % PAGE_BITS;
+                final_pages = (height + yoffset + PAGE_BITS - 1) / PAGE_BITS;
                 osprite_size = orig_width * final_pages;
                 osprite = malloc(osprite_size);
                 memset(osprite, 0x00, osprite_size);
@@ -639,10 +658,12 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
                 for (uint8_t cur_page = 0; cur_page < final_pages; cur_page++) {
                         for (uint8_t cur_x = 0; cur_x < orig_width; cur_x++) {
                                 if (cur_page > 0)
-                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (cur_page - 1) * orig_width] >> (8 - yoffset);
+                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (pshift + cur_page - 1) * orig_width] >> (PAGE_BITS - yoffset);
+                                        //osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (cur_page - 1) * orig_width] >> (PAGE_BITS - yoffset);
 
                                 if (cur_page < orig_pages)
-                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + cur_page * orig_width] << yoffset;
+                                        osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + (pshift + cur_page) * orig_width] << yoffset;
+                                        //osprite[cur_x + cur_page * orig_width] |= sprite[cur_x + cur_page * orig_width] << yoffset;
                         }
                 }
         }
@@ -651,14 +672,15 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
         buf = rp2040_oled_alloc_data_buf(buf_size);
 
         for (uint8_t cur_page = 0; cur_page < final_pages; cur_page++) {
-                if (!rp2040_oled_set_position(oled, x, y + cur_page * 8)) {
+                if (!rp2040_oled_set_position(oled, x, y + cur_page * PAGE_BITS)) {
                         ret = false;
                         goto out;
                 }
-                memcpy(buf, final_sprite + (cur_page * orig_width), width);
-                if (cur_page == final_pages - 1 && height % 8) {
+                memcpy(buf, final_sprite + xshift + (cur_page * orig_width), width);
+                //memcpy(buf, final_sprite + xshift + ((yshift + cur_page) * orig_width), width);
+                if (cur_page == final_pages - 1 && (y + height) % PAGE_BITS) {
                         uint8_t mask = 0x00;
-                        for (uint8_t i = 0; i < height % 8; i++) {
+                        for (uint8_t i = 0; i < (y + height) % PAGE_BITS; i++) {
                                 mask |= 1 << i;
                         }
 
@@ -679,24 +701,24 @@ out:
         return ret;
 }
 
-bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
-                                     uint8_t y, uint8_t width, uint8_t height, uint8_t pitch,
+bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, int16_t x,
+                                     int16_t y, uint8_t width, uint8_t height, uint8_t pitch,
                                      rp2040_oled_color_t color)
 {
         bool ret = true;
         uint8_t *mem_sprite = NULL;
-        size_t mem_sprite_size = width * ((height + 8 - 1) / 8);
+        size_t mem_sprite_size = width * ((height + PAGE_BITS - 1) / PAGE_BITS);
 
         mem_sprite = malloc(mem_sprite_size);
         memset(mem_sprite, 0x00, mem_sprite_size);
 
         for (uint8_t cy = 0; cy < height; cy++) {
-                uint8_t cpage = cy / 8;
+                uint8_t cpage = cy / PAGE_BITS;
                 uint8_t sx = 0;
                 uint8_t *src = sprite + (cy * pitch);
                 uint8_t *dst = mem_sprite + (cpage * width);
                 uint8_t src_mask = 0x80;
-                uint8_t dst_mask = 1 << (cy & 7);
+                uint8_t dst_mask = 1 << (cy & (PAGE_BITS - 1));
                 for (uint8_t dx = 0; dx < width; dx++) {
                         if (*(src + sx) & src_mask)
                                 *(dst + dx) |= dst_mask;

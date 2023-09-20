@@ -13,6 +13,7 @@
 
 #define GPIO_LEVEL_HIGH 1
 #define GPIO_LEVEL_LOW 0
+#define PAGE_BITS 8
 
 typedef enum {
         OLED_128x128 = 1,
@@ -114,11 +115,11 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
                               size_t len);
 bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
                            rp2040_oled_color_t color, bool render);
-bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t x,
-                             uint8_t y, uint8_t width, uint8_t height,
+bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t x,
+                             int16_t y, uint8_t width, uint8_t height,
                              rp2040_oled_color_t color);
-bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x,
-                                     uint8_t y, uint8_t width, uint8_t height, uint8_t pitch,
+bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, int16_t x,
+                                     int16_t y, uint8_t width, uint8_t height, uint8_t pitch,
                                      rp2040_oled_color_t color);
 bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                            uint8_t x1, uint8_t y1, rp2040_oled_color_t color);
