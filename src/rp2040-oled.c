@@ -616,9 +616,9 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
         size_t buf_size;
         uint8_t orig_width = width;
         const uint8_t *final_sprite = sprite;
-        uint8_t final_pages = height / 8;
+        uint8_t final_pages = (height + 8 - 1) / 8;
         uint8_t *osprite = NULL;
-        size_t osprite_size = width * ((height / 8) + 1);
+        size_t osprite_size = width * (((height + 8 - 1) / 8) + 1);
 
         if (x + width > oled->width)
                 width = oled->width - x;
@@ -652,6 +652,16 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, uint8_t
                         goto out;
                 }
                 memcpy(buf, final_sprite + (cur_page * orig_width), width);
+                if (cur_page == final_pages - 1 && height % 8) {
+                        uint8_t mask = 0x00;
+                        for (uint8_t i = 0; i < height % 8; i++) {
+                                mask |= 1 << i;
+                        }
+
+                        for (uint8_t i = 0; i < width; i++) {
+                                *(buf + i) &= mask;
+                        }
+                }
                 if (!rp2040_oled_write_gdram(oled, buf, buf_size, color, true)) {
                         ret = false;
                         goto out;
@@ -671,7 +681,7 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, uint8
 {
         bool ret = true;
         uint8_t *mem_sprite = NULL;
-        size_t mem_sprite_size = width * (height / 8);
+        size_t mem_sprite_size = width * ((height + 8 - 1) / 8);
 
         mem_sprite = malloc(mem_sprite_size);
         memset(mem_sprite, 0x00, mem_sprite_size);
