@@ -785,3 +785,40 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, int16
         free(mem_sprite);
         return ret;
 }
+
+bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y, uint8_t r,
+                                rp2040_oled_color_t color, bool fill, bool render)
+{
+        uint8_t dx = r, dy = 0;
+        int16_t t1 = r / 16;
+        int16_t t2;
+        
+        while (dx >= dy) {
+                if (fill) {
+                        rp2040_oled_draw_line(oled, x + dx, y + dy, x + dx, y - dy, color, false);
+                        rp2040_oled_draw_line(oled, x - dx, y + dy, x - dx, y - dy, color, false);
+                        rp2040_oled_draw_line(oled, x + dy, y + dx, x + dy, y - dx, color, false);
+                        rp2040_oled_draw_line(oled, x - dy, y + dx, x - dy, y - dx, color, false);
+                } else {
+                        rp2040_oled_set_pixel(oled, x + dx, y + dy, color, false);
+                        rp2040_oled_set_pixel(oled, x + dx, y - dy, color, false);
+                        rp2040_oled_set_pixel(oled, x - dx, y + dy, color, false);
+                        rp2040_oled_set_pixel(oled, x - dx, y - dy, color, false);
+                        rp2040_oled_set_pixel(oled, x + dy, y + dx, color, false);
+                        rp2040_oled_set_pixel(oled, x + dy, y - dx, color, false);
+                        rp2040_oled_set_pixel(oled, x - dy, y + dx, color, false);
+                        rp2040_oled_set_pixel(oled, x - dy, y - dx, color, false);
+                }
+                
+                dy++;
+                t1 += dy;
+                t2 = t1 - dx;
+                if (t2 >= 0) {
+                        t1 = t2;
+                        dx--;
+                }
+        }
+
+        if (render)
+                rp2040_oled_flush(oled);
+}
