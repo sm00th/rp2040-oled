@@ -517,7 +517,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
         int8_t sy = y0 < y1 ? 1 : -1;
         int16_t err = dx + dy;
         int16_t err2;
-        uint8_t bit_mask = 0x00;
+        uint8_t bit_mask = color == OLED_COLOR_WHITE ? 0x00 : 0xff;
         uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
 
         if (x0 < 0 || x1 < 0 || y0 < 0 || y1 < 0 || x0 >= oled->width ||
@@ -527,7 +527,11 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
         if (x0 == x1) {
                 if (y0 / PAGE_BITS == y1 / PAGE_BITS) {
                         for (uint8_t y = y0; y != y1; y += sy) {
-                                bit_mask |= 1 << (sy == 1 ? y % PAGE_BITS : PAGE_BITS - y % PAGE_BITS);
+                                uint8_t bitshift = 1 << (sy == 1 ? y % PAGE_BITS : PAGE_BITS - y % PAGE_BITS);
+                                if (color == OLED_COLOR_WHITE)
+                                        bit_mask |= bitshift;
+                                else
+                                        bit_mask &= ~bitshift;
                         }
                         rp2040_oled_set_position(oled, x0, y0);
                         buf[1] = bit_mask;
@@ -545,9 +549,13 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                         y = y0;
 
                         if (tshift) {
-                                bit_mask = 0x00;
+                                bit_mask = color ? 0x00 : 0xff;
                                 for (uint8_t i = 0; i < tshift; i++) {
-                                        bit_mask |= 1 << ((PAGE_BITS - 1) - i);
+                                        uint8_t bitshift = 1 << ((PAGE_BITS - 1) - i);
+                                        if (color == OLED_COLOR_WHITE)
+                                                bit_mask |= bitshift;
+                                        else
+                                                bit_mask &= ~bitshift;
                                 }
                                 rp2040_oled_set_position(oled, x0, y);
                                 buf[1] = bit_mask;
@@ -563,9 +571,13 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                         }
 
                         if (bshift) {
-                                bit_mask = 0x00;
+                                bit_mask = color ? 0x00 : 0xff;
                                 for (uint8_t i = 0; i < bshift; i++) {
-                                        bit_mask |= 1 << i;
+                                        uint8_t bitshift = 1 << i;
+                                        if (color == OLED_COLOR_WHITE)
+                                                bit_mask |= bitshift;
+                                        else
+                                                bit_mask &= ~bitshift;
                                 }
                                 rp2040_oled_set_position(oled, x0, y);
                                 buf[1] = bit_mask;
