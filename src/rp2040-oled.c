@@ -10,7 +10,6 @@
 #include "pico/error.h"
 
 #include "rp2040-oled.h"
-#include "rp2040-oled-internal.h"
 
 static void rp2040_i2c_init(rp2040_oled_t *oled)
 {

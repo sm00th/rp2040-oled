@@ -15,8 +15,11 @@ add_compile_options(-Wall -Wtype-limits)
 
 add_library(rp2040-oled
     src/rp2040-oled.c
+    src/include/rp2040-oled.h
     src/rp2040-oled.h
 )
+
+target_include_directories(rp2040-oled INTERFACE src/include)
 
 # Add pico_stdlib library which aggregates commonly used features
 target_link_libraries(rp2040-oled pico_stdlib hardware_i2c)
