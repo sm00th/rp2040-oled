@@ -413,9 +413,14 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
 
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x, uint8_t y, uint8_t width, uint8_t height)
 {
+        bool ret = true;
         uint8_t *buf;
         size_t buf_size;
         uint8_t orig_width = width;
+        uint8_t *final_sprite = sprite;
+        uint8_t final_pages = height / 8;
+        uint8_t *osprite = NULL;
+        size_t osprite_size = width * (height + 8) / 8;
 
         if (x + width > oled->width)
                 width = oled->width - x;
@@ -423,23 +428,40 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, uint8_t *sprite, uint8_t x, ui
         if (y + height > oled->height)
                 height = oled->height - y;
 
-        /* TODO: mod8 magic shifts */
+        if (y % 8 != 0) {
+                uint8_t yoffset = y % 8;
+                osprite = malloc(osprite_size);
+                memset(osprite, 0x00, osprite_size);
+                for (uint8_t cur_page = 0; cur_page < height / 8; cur_page++) {
+                        for (uint8_t cur_x = 0; cur_x < width; cur_x++) {
+                                if (cur_page > 0)
+                                        osprite[cur_x + cur_page * width] |= sprite[cur_x + (cur_page - 1) * width] << (8 - yoffset);
+
+                                osprite[cur_x + cur_page * width] |= sprite[cur_x + cur_page * width] >> yoffset;
+                        }
+                }
+                final_sprite = osprite;
+                final_pages++;
+        }
 
         buf_size = width;
         buf = rp2040_oled_alloc_data_buf(buf_size);
 
-        for (uint8_t cury = 0; cury < height; cury += 8) {
-                if (!rp2040_oled_set_position(oled, x, cury)) {
-                        rp2040_oled_free_data_buf(buf);
-                        return false;
+        for (uint8_t cur_page = 0; cur_page < final_pages; cur_page++) {
+                if (!rp2040_oled_set_position(oled, x, cur_page * 8)) {
+                        ret = false;
+                        goto out;
                 }
-                memcpy(buf, sprite + (cury * orig_width), width);
+                memcpy(buf, final_sprite + (cur_page * orig_width), width);
                 if (!rp2040_oled_write_gdram(oled, buf, buf_size, true)) {
-                        rp2040_oled_free_data_buf(buf);
-                        return false;
+                        ret = false;
+                        goto out;
                 }
         }
 
+out:
         rp2040_oled_free_data_buf(buf);
-        return true;
+        if (osprite)
+                free(osprite);
+        return ret;
 }
