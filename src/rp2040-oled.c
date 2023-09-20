@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright 2023, Artem Savkov
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include "hardware/gpio.h"

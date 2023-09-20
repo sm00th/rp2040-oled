@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright 2023, Artem Savkov
+ */
+
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 

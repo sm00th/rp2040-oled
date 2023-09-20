@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.13)
 
 # initialize the SDK based on PICO_SDK_PATH
