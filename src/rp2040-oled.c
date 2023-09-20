@@ -495,7 +495,7 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
         buf[1] = oled->gdram[x + (page * oled->width)];
         if (color == OLED_COLOR_WHITE)
                 buf[1] |= bit_mask;
-        else if (OLED_COLOR_BLACK)
+        else if (color == OLED_COLOR_BLACK)
                 buf[1] &= ~bit_mask;
         else
                 return false;
@@ -518,7 +518,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uint8_t 
         int8_t sy = y0 < y1 ? 1 : -1;
         int16_t err = dx + dy;
         int16_t err2;
-        uint8_t bit_mask = color == OLED_COLOR_WHITE ? 0x00 : 0xff;
+        uint8_t bit_mask = (color == OLED_COLOR_WHITE) ? 0x00 : 0xff;
         uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
 
         if (x0 < 0 || x1 < 0 || y0 < 0 || y1 < 0 || x0 >= oled->width ||
@@ -550,7 +550,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uint8_t 
                         y = y0;
 
                         if (tshift) {
-                                bit_mask = color ? 0x00 : 0xff;
+                                bit_mask = (color == OLED_COLOR_WHITE) ? 0x00 : 0xff;
                                 for (uint8_t i = 0; i < tshift; i++) {
                                         uint8_t bitshift = 1 << ((PAGE_BITS - 1) - i);
                                         if (color == OLED_COLOR_WHITE)
@@ -564,7 +564,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uint8_t 
                                 y += tshift;
                         }
 
-                        buf[1] = 0xff;
+                        buf[1] = (color == OLED_COLOR_WHITE) ? 0xff : 0x00;
                         while (y / PAGE_BITS < y1 / PAGE_BITS) {
                                 rp2040_oled_set_position(oled, x0, y);
                                 rp2040_oled_write_gdram(oled, buf + 1, 1, color, false);
@@ -572,7 +572,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uint8_t 
                         }
 
                         if (bshift) {
-                                bit_mask = color ? 0x00 : 0xff;
+                                bit_mask = (color == OLED_COLOR_WHITE) ? 0x00 : 0xff;
                                 for (uint8_t i = 0; i < bshift; i++) {
                                         uint8_t bitshift = 1 << i;
                                         if (color == OLED_COLOR_WHITE)
