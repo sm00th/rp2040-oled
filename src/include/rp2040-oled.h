@@ -99,13 +99,9 @@ typedef struct _rp2040_oled {
                 uint8_t x;
                 uint8_t y;
         } cursor;
-        struct {
-                uint8_t x0;
-                uint8_t y0;
-                uint8_t x1;
-                uint8_t y1;
-                bool    is_dirty;
-        } dirty_area;
+        uint8_t *dirty_buf;
+        size_t  dirty_buf_size;
+        bool    is_dirty;
 } rp2040_oled_t;
 
 #ifdef __cplusplus

@@ -163,23 +163,10 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
         memcpy(oled->gdram + gdram_offset, buf, size);
 
         if (!render) {
-                if (!oled->dirty_area.is_dirty) {
-                        oled->dirty_area.is_dirty = true;
-                        oled->dirty_area.y0 = oled->cursor.y;
-                        oled->dirty_area.y1 = oled->cursor.y;
-                        oled->dirty_area.x0 = oled->cursor.x;
-                        oled->dirty_area.x1 = oled->cursor.x + size;
-                } else {
-                        if (oled->cursor.y < oled->dirty_area.y0)
-                                oled->dirty_area.y0 = oled->cursor.y;
-                        if (oled->cursor.y > oled->dirty_area.y1)
-                                oled->dirty_area.y1 = oled->cursor.y;
+                for (uint8_t x = oled->cursor.x; x < oled->cursor.x + size; x++)
+                        oled->dirty_buf[oled->cursor.y * (oled->width / 8) + x / 8] |= 1 << x % 8;
 
-                        if (oled->cursor.x < oled->dirty_area.x0)
-                                oled->dirty_area.x0 = oled->cursor.x;
-                        if (oled->cursor.x > oled->dirty_area.x1)
-                                oled->dirty_area.x1 = oled->cursor.x;
-                }
+                oled->is_dirty = true;
         }
 
         oled->cursor.x += size;
@@ -192,31 +179,51 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
 
 bool rp2040_oled_flush(rp2040_oled_t *oled)
 {
-        uint8_t *buf;
-        uint8_t width = oled->dirty_area.x1 - oled->dirty_area.x0 + 1;
+        uint8_t *buf = NULL;
 
-        if (!oled->dirty_area.is_dirty)
+        if (!oled->is_dirty)
                 return true;
 
-        buf = rp2040_oled_alloc_data_buf(width);
-        for (uint8_t y = oled->dirty_area.y0; y <= oled->dirty_area.y1; y++) {
-                size_t gdram_offset = oled->dirty_area.x0 + (y * oled->width);
-                memcpy(buf, oled->gdram + gdram_offset, width);
-                if (!rp2040_oled_set_position(oled, oled->dirty_area.x0, y * PAGE_BITS)) {
-                        return false;
-                }
-                if (rp2040_i2c_write(oled, buf - 1, width + 1) != width + 1) {
-                        rp2040_oled_free_data_buf(buf);
-                        return false;
+        for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
+                uint8_t xstart = 0;
+                uint8_t width = 0;
+
+                for (uint8_t xpage = 0; xpage < oled->width / 8; xpage++) {
+                        uint8_t page = oled->dirty_buf[y * (oled->width / 8) + xpage];
+                        if (page) {
+                                for (uint8_t dx = 0; dx < 8; dx++) {
+                                        if (page & 1 << dx) {
+                                                if (width == 0) {
+                                                        xstart = xpage * 8 + dx;
+                                                }
+                                                width++;
+                                        } else {
+                                                if (width != 0) {
+                                                        size_t gdram_offset = xstart + (y * oled->width);
+
+                                                        buf = rp2040_oled_alloc_data_buf(width);
+                                                        memcpy(buf, oled->gdram + gdram_offset, width);
+
+                                                        if (!rp2040_oled_set_position(oled, xstart, y * PAGE_BITS)) {
+                                                                return false;
+                                                        }
+                                                        if (rp2040_i2c_write(oled, buf - 1, width + 1) != width + 1) {
+                                                                rp2040_oled_free_data_buf(buf);
+                                                                return false;
+                                                        }
+
+                                                        rp2040_oled_free_data_buf(buf);
+
+                                                        width = 0;
+                                                }
+                                        }
+                                }
+                        }
                 }
         }
-        rp2040_oled_free_data_buf(buf);
 
-        oled->dirty_area.x0 = 0;
-        oled->dirty_area.y0 = 0;
-        oled->dirty_area.x1 = 0;
-        oled->dirty_area.y1 = 0;
-        oled->dirty_area.is_dirty = false;
+        oled->is_dirty = false;
+        memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
 
         oled->cursor.x = 0;
         oled->cursor.y = 0;
@@ -307,11 +314,10 @@ static int rp2040_oled_display_init(rp2040_oled_t *oled)
         oled->cursor.x = 0;
         oled->cursor.y = 0;
 
-        oled->dirty_area.x0 = 0;
-        oled->dirty_area.y0 = 0;
-        oled->dirty_area.x1 = 0;
-        oled->dirty_area.y1 = 0;
-        oled->dirty_area.is_dirty = false;
+        oled->is_dirty = false;
+        oled->dirty_buf_size = (oled->width / 8) * (oled->height / PAGE_BITS);
+        oled->dirty_buf = malloc(oled->dirty_buf_size);
+        memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
 
         return 0;
 }
