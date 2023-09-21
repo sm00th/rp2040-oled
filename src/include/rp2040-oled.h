@@ -75,6 +75,7 @@ typedef enum {
 } rp2040_oled_cmd_t;
 
 typedef enum {
+        FLIP_NONE       = 0x0,
         FLIP_HORIZONTAL = 0x1,
         FLIP_VERTICAL   = 0x2,
         FLIP_BOTH       = (FLIP_HORIZONTAL | FLIP_VERTICAL)
