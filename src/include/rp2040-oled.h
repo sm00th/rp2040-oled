@@ -110,6 +110,7 @@ extern "C" {
 
 rp2040_oled_type_t rp2040_oled_init(rp2040_oled_t *oled);
 bool rp2040_oled_clear(rp2040_oled_t *oled);
+bool rp2040_oled_clear_gdram(rp2040_oled_t *oled);
 bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast);
 bool rp2040_oled_set_power(rp2040_oled_t *oled, bool enabled);
 bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg,

@@ -434,7 +434,7 @@ rp2040_oled_type_t rp2040_oled_init(rp2040_oled_t *oled)
         return type;
 }
 
-static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte)
+static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte, bool render)
 {
         uint8_t *fill_buf;
         size_t fill_buf_size = oled->width;
@@ -448,7 +448,7 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte)
                         return false;
                 }
 
-                if (!rp2040_oled_write_gdram(oled, fill_buf, fill_buf_size, OLED_COLOR_FULL_BYTE, true)) {
+                if (!rp2040_oled_write_gdram(oled, fill_buf, fill_buf_size, OLED_COLOR_FULL_BYTE, render)) {
                         rp2040_oled_free_data_buf(fill_buf);
                         return false;
                 }
@@ -671,7 +671,12 @@ bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0, uin
 
 bool rp2040_oled_clear(rp2040_oled_t *oled)
 {
-        return rp2040_oled_fill(oled, 0x00);
+        return rp2040_oled_fill(oled, 0x00, true);
+}
+
+bool rp2040_oled_clear_gdram(rp2040_oled_t *oled)
+{
+        return rp2040_oled_fill(oled, 0x00, false);
 }
 
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t x,
