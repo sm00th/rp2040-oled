@@ -108,6 +108,10 @@ typedef struct _rp2040_oled {
         } dirty_area;
 } rp2040_oled_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 rp2040_oled_type_t rp2040_oled_init(rp2040_oled_t *oled);
 bool rp2040_oled_clear(rp2040_oled_t *oled);
 bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast);
@@ -133,4 +137,7 @@ bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y, uint8_t
                               bool render);
 bool rp2040_oled_flush(rp2040_oled_t *oled);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* _RP2040_OLED_H */
