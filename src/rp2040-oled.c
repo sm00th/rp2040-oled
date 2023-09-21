@@ -177,10 +177,28 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
         return rp2040_i2c_write(oled, buf - 1, size + 1) == size + 1;
 }
 
-bool rp2040_oled_flush(rp2040_oled_t *oled)
+static bool rp2040_oled_render_gdram(rp2040_oled_t *oled, uint8_t x, uint8_t y,
+                                     size_t gdram_offset, uint8_t size)
 {
         uint8_t *buf = NULL;
 
+        buf = rp2040_oled_alloc_data_buf(size);
+        memcpy(buf, oled->gdram + gdram_offset, size);
+
+        if (!rp2040_oled_set_position(oled, x, y * PAGE_BITS)) {
+                return false;
+        }
+        if (rp2040_i2c_write(oled, buf - 1, size + 1) != size + 1) {
+                rp2040_oled_free_data_buf(buf);
+                return false;
+        }
+
+        rp2040_oled_free_data_buf(buf);
+        return true;
+}
+
+bool rp2040_oled_flush(rp2040_oled_t *oled)
+{
         if (!oled->is_dirty)
                 return true;
 
@@ -200,25 +218,19 @@ bool rp2040_oled_flush(rp2040_oled_t *oled)
                                         } else {
                                                 if (width != 0) {
                                                         size_t gdram_offset = xstart + (y * oled->width);
-
-                                                        buf = rp2040_oled_alloc_data_buf(width);
-                                                        memcpy(buf, oled->gdram + gdram_offset, width);
-
-                                                        if (!rp2040_oled_set_position(oled, xstart, y * PAGE_BITS)) {
-                                                                return false;
-                                                        }
-                                                        if (rp2040_i2c_write(oled, buf - 1, width + 1) != width + 1) {
-                                                                rp2040_oled_free_data_buf(buf);
-                                                                return false;
-                                                        }
-
-                                                        rp2040_oled_free_data_buf(buf);
+                                                        rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
 
                                                         width = 0;
                                                 }
                                         }
                                 }
                         }
+                }
+                if (width != 0) {
+                        size_t gdram_offset = xstart + (y * oled->width);
+                        rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+
+                        width = 0;
                 }
         }
 
