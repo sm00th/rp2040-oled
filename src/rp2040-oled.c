@@ -105,7 +105,13 @@ static int rp2040_oled_display_init(rp2040_oled_t *oled)
         oled->cursor.y = 0;
 
         oled->is_dirty = false;
-        oled->dirty_buf_size = (oled->width / 8) * (oled->height / PAGE_BITS);
+
+        if (oled->use_doublebuf) {
+                oled->dirty_buf_size = oled->gdram_size;
+        } else {
+                oled->dirty_buf_size = (oled->width / 8) * (oled->height / PAGE_BITS);
+        }
+
         oled->dirty_buf = malloc(oled->dirty_buf_size);
         memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
 

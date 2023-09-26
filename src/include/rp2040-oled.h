@@ -107,6 +107,7 @@ typedef struct _rp2040_oled {
         uint8_t *dirty_buf;
         size_t  dirty_buf_size;
         bool    is_dirty;
+        bool    use_doublebuf;
 } rp2040_oled_t;
 
 #ifdef __cplusplus

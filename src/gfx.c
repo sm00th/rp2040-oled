@@ -59,43 +59,14 @@ static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y)
         return rp2040_i2c_write(oled, buf, sizeof(buf)) == sizeof(buf);
 }
 
-static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t size,
-                                    rp2040_oled_color_t color, bool render)
-{
-        size_t gdram_offset = oled->cursor.x + (oled->cursor.y * oled->width);
-
-        if (oled->cursor.x + size > oled->width)
-                return false;
-
-        if (color != OLED_COLOR_FULL_BYTE) {
-                for (size_t i = 0; i < size; i++) {
-                        if (color == OLED_COLOR_WHITE)
-                                buf[i] = buf[i] | *(oled->gdram + gdram_offset + i);
-                        else if (color == OLED_COLOR_BLACK)
-                                buf[i] = buf[i] & *(oled->gdram + gdram_offset + i);
-                }
-        }
-        memcpy(oled->gdram + gdram_offset, buf, size);
-
-        if (!render) {
-                for (uint8_t x = oled->cursor.x; x < oled->cursor.x + size; x++)
-                        oled->dirty_buf[oled->cursor.y * (oled->width / 8) + x / 8] |= 1 << x % 8;
-
-                oled->is_dirty = true;
-        }
-
-        oled->cursor.x += size;
-
-        if (!render)
-                return true;
-
-        return rp2040_i2c_write(oled, buf - 1, size + 1) == size + 1;
-}
-
 static bool rp2040_oled_render_gdram(rp2040_oled_t *oled, uint8_t x, uint8_t y,
                                      size_t gdram_offset, uint8_t size)
 {
         uint8_t *buf = NULL;
+
+        if (oled->use_doublebuf)
+                memcpy(oled->gdram + gdram_offset, oled->dirty_buf + gdram_offset,
+                       size);
 
         buf = rp2040_oled_alloc_data_buf(size);
         memcpy(buf, oled->gdram + gdram_offset, size);
@@ -121,26 +92,45 @@ bool rp2040_oled_flush(rp2040_oled_t *oled)
                 uint8_t xstart = 0;
                 uint8_t width = 0;
 
-                for (uint8_t xpage = 0; xpage < oled->width / 8; xpage++) {
-                        uint8_t page = oled->dirty_buf[y * (oled->width / 8) + xpage];
-                        if (page) {
-                                for (uint8_t dx = 0; dx < 8; dx++) {
-                                        if (page & 1 << dx) {
-                                                if (width == 0) {
-                                                        xstart = xpage * 8 + dx;
-                                                }
-                                                width++;
-                                        } else {
-                                                if (width != 0) {
-                                                        size_t gdram_offset = xstart + (y * oled->width);
-                                                        rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+                if (oled->use_doublebuf) {
+                        for (uint8_t x = 0; x < oled->width; x++) {
+                                if (oled->gdram + (y * oled->width + x) != oled->dirty_buf + (y * oled->width + x)) {
+                                        if (width == 0)
+                                                xstart = x;
+                                        width++;
+                                } else {
+                                        if (width != 0) {
+                                                size_t gdram_offset = xstart + (y * oled->width);
+                                                rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
 
-                                                        width = 0;
+                                                width = 0;
+                                        }
+                                }
+
+                        }
+                } else {
+                        for (uint8_t xpage = 0; xpage < oled->width / 8; xpage++) {
+                                uint8_t page = oled->dirty_buf[y * (oled->width / 8) + xpage];
+                                if (page) {
+                                        for (uint8_t dx = 0; dx < 8; dx++) {
+                                                if (page & 1 << dx) {
+                                                        if (width == 0) {
+                                                                xstart = xpage * 8 + dx;
+                                                        }
+                                                        width++;
+                                                } else {
+                                                        if (width != 0) {
+                                                                size_t gdram_offset = xstart + (y * oled->width);
+                                                                rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+
+                                                                width = 0;
+                                                        }
                                                 }
                                         }
                                 }
                         }
                 }
+
                 if (width != 0) {
                         size_t gdram_offset = xstart + (y * oled->width);
                         rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
@@ -150,12 +140,50 @@ bool rp2040_oled_flush(rp2040_oled_t *oled)
         }
 
         oled->is_dirty = false;
-        memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
+
+        if (!oled->use_doublebuf) {
+                memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
+        }
 
         oled->cursor.x = 0;
         oled->cursor.y = 0;
 
         return true;
+}
+
+static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t size,
+                                    rp2040_oled_color_t color, bool render)
+{
+        size_t gdram_offset = oled->cursor.x + (oled->cursor.y * oled->width);
+        uint8_t *gdram = oled->use_doublebuf ? oled->dirty_buf : oled->gdram;
+
+        if (oled->cursor.x + size > oled->width)
+                return false;
+
+        if (color != OLED_COLOR_FULL_BYTE) {
+                for (size_t i = 0; i < size; i++) {
+                        if (color == OLED_COLOR_WHITE)
+                                buf[i] = buf[i] | *(gdram + gdram_offset + i);
+                        else if (color == OLED_COLOR_BLACK)
+                                buf[i] = buf[i] & *(gdram + gdram_offset + i);
+                }
+        }
+        memcpy(gdram + gdram_offset, buf, size);
+
+        if (!render) {
+                if (!oled->use_doublebuf)
+                        for (uint8_t x = oled->cursor.x; x < oled->cursor.x + size; x++)
+                                oled->dirty_buf[oled->cursor.y * (oled->width / 8) + x / 8] |= 1 << x % 8;
+
+                oled->is_dirty = true;
+        }
+
+        oled->cursor.x += size;
+
+        if (!render)
+                return true;
+
+        return oled->use_doublebuf ? rp2040_oled_flush(oled) : rp2040_i2c_write(oled, buf - 1, size + 1) == size + 1;
 }
 
 static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte, bool render)
@@ -219,11 +247,12 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
         uint8_t page_offset = y % PAGE_BITS;
         uint8_t bit_mask = 1 << page_offset;
         uint8_t buf[2] = {OLED_CB_DATA_BIT, 0x00};
+        uint8_t *gdram = oled->use_doublebuf ? oled->dirty_buf : oled->gdram;
 
         if (x >= oled->width || y >= oled->height)
                 return false;
 
-        buf[1] = oled->gdram[x + (page * oled->width)];
+        buf[1] = gdram[x + (page * oled->width)];
         if (color == OLED_COLOR_WHITE)
                 buf[1] |= bit_mask;
         else if (color == OLED_COLOR_BLACK)
