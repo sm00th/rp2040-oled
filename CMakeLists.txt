@@ -20,6 +20,7 @@ add_library(rp2040-oled
     src/i2c.c
     src/i2c.h
     src/gfx.c
+    src/gfx.h
     src/font.h
 )
 

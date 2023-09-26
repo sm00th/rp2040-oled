@@ -154,6 +154,21 @@ bool rp2040_oled_flush(rp2040_oled_t *oled)
         return true;
 }
 
+bool rp2040_oled_force_flush(rp2040_oled_t *oled)
+{
+        for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
+                size_t gdram_offset = y * oled->width;
+                rp2040_oled_render_gdram(oled, 0, y, gdram_offset, oled->width);
+        }
+
+        oled->is_dirty = false;
+
+        oled->cursor.x = 0;
+        oled->cursor.y = 0;
+
+        return true;
+}
+
 static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t size,
                                     rp2040_oled_color_t color, bool render)
 {
