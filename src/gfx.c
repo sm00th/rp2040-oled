@@ -97,7 +97,7 @@ bool rp2040_oled_flush(rp2040_oled_t *oled)
 
                 if (oled->use_doublebuf) {
                         for (uint8_t x = 0; x < oled->width; x++) {
-                                if (oled->gdram + (y * oled->width + x) != oled->dirty_buf + (y * oled->width + x)) {
+                                if (*(oled->gdram + (y * oled->width + x)) != *(oled->dirty_buf + (y * oled->width + x))) {
                                         if (width == 0)
                                                 xstart = x;
                                         width++;
