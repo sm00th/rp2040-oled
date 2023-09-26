@@ -14,9 +14,13 @@ pico_sdk_init()
 add_compile_options(-Wall -Wtype-limits)
 
 add_library(rp2040-oled
-    src/rp2040-oled.c
     src/include/rp2040-oled.h
-    src/rp2040-oled.h
+    src/rp2040-oled.c
+    src/display.h
+    src/i2c.c
+    src/i2c.h
+    src/gfx.c
+    src/font.h
 )
 
 target_include_directories(rp2040-oled INTERFACE src/include)

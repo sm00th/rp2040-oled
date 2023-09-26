@@ -15,6 +15,11 @@
 #define GPIO_LEVEL_LOW 0
 #define PAGE_BITS 8
 
+enum {
+        OLED_CB_CONTINUATION_BIT = 0x80,
+        OLED_CB_DATA_BIT         = 0x40,
+};
+
 typedef enum {
         OLED_128x128 = 1,
         OLED_128x64,
