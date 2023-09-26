@@ -176,6 +176,8 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf, size_t si
                                 oled->dirty_buf[oled->cursor.y * (oled->width / 8) + x / 8] |= 1 << x % 8;
 
                 oled->is_dirty = true;
+        } else if (oled->use_doublebuf) {
+                oled->is_dirty = true;
         }
 
         oled->cursor.x += size;
@@ -200,11 +202,14 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte, bool render
                         return false;
                 }
 
-                if (!rp2040_oled_write_gdram(oled, fill_buf, fill_buf_size, OLED_COLOR_FULL_BYTE, render)) {
+                if (!rp2040_oled_write_gdram(oled, fill_buf, fill_buf_size, OLED_COLOR_FULL_BYTE, false)) {
                         rp2040_oled_free_data_buf(fill_buf);
                         return false;
                 }
         }
+
+        if (render)
+                rp2040_oled_flush(oled);
 
         rp2040_oled_free_data_buf(fill_buf);
         return true;
@@ -423,7 +428,8 @@ bool rp2040_oled_clear_gdram(rp2040_oled_t *oled)
 }
 
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t x,
-                             int16_t y, uint8_t width, uint8_t height, rp2040_oled_color_t color)
+                             int16_t y, uint8_t width, uint8_t height,
+                             rp2040_oled_color_t color, bool render)
 {
         bool ret = true;
         uint8_t *buf;
@@ -505,11 +511,14 @@ bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t
                                 *(buf + i) &= mask;
                         }
                 }
-                if (!rp2040_oled_write_gdram(oled, buf, buf_size, color, true)) {
+                if (!rp2040_oled_write_gdram(oled, buf, buf_size, color, false)) {
                         ret = false;
                         goto out;
                 }
         }
+
+        if (render)
+                rp2040_oled_flush(oled);
 
 out:
         rp2040_oled_free_data_buf(buf);
@@ -520,7 +529,7 @@ out:
 
 bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, int16_t x,
                                      int16_t y, uint8_t width, uint8_t height, uint8_t pitch,
-                                     rp2040_oled_color_t color)
+                                     rp2040_oled_color_t color, bool render)
 {
         bool ret = true;
         uint8_t *mem_sprite = NULL;
@@ -547,7 +556,7 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite, int16
                 }
         }
 
-        ret = rp2040_oled_draw_sprite(oled, mem_sprite, x, y, width, height, color);
+        ret = rp2040_oled_draw_sprite(oled, mem_sprite, x, y, width, height, color, render);
         free(mem_sprite);
         return ret;
 }
