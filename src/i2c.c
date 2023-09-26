@@ -6,7 +6,6 @@
 #include <string.h>
 
 #include "i2c.h"
-#include "display.h"
 
 void rp2040_i2c_init(rp2040_oled_t *oled)
 {
