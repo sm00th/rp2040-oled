@@ -210,7 +210,8 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte, bool render
         return true;
 }
 
-bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg, size_t len)
+bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg,
+                              size_t len, bool render)
 {
         uint8_t *buf;
         size_t buf_size = len * 6;
@@ -230,7 +231,7 @@ bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *m
                 memcpy(buf + (1 + (i * 6)), font_6x8 + (font_index * 5), 5);
         }
 
-        if (!rp2040_oled_write_gdram(oled, buf, buf_size, OLED_COLOR_WHITE, true)) {
+        if (!rp2040_oled_write_gdram(oled, buf, buf_size, OLED_COLOR_WHITE, render)) {
                 rp2040_oled_free_data_buf(buf);
                 return false;
         }

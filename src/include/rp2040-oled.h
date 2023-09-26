@@ -120,7 +120,7 @@ bool rp2040_oled_clear_gdram(rp2040_oled_t *oled);
 bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast);
 bool rp2040_oled_set_power(rp2040_oled_t *oled, bool enabled);
 bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y, char *msg,
-                              size_t len);
+                              size_t len, bool render);
 bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
                            rp2040_oled_color_t color, bool render);
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite, int16_t x,
