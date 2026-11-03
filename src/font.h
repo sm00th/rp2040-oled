@@ -3,15 +3,12 @@
  * Copyright 2023, Artem Savkov
  */
 
-// font definition
-// printable ascii, starting at ' ' (32) and going through 127. each
-// character is 5 bytes, one per column from left to right, and in each byte
-// bit 0 is the top pixel (same layout as the display ram). a character's
-// bytes start at font_6x8 + (c - 32) * 5. it's "6x8" because write_string
-// adds a blank column to each character for spacing
 
 #include <stdint.h>
 
+// printable ascii starting at ' ' (32). each character is 5 column bytes with
+// bit 0 on top, so c starts at font_6x8 + (c - 32) * 5. write_string adds a
+// blank column, which makes it 6x8
 const uint8_t font_6x8[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x5f, 0x06, 0x00, 0x07, 0x03,
     0x00, 0x07, 0x03, 0x24, 0x7e, 0x24, 0x7e, 0x24, 0x24, 0x2b, 0x6a, 0x12,
