@@ -74,7 +74,7 @@ target_link_libraries(rp2040-oled
         hardware_spi
         pico_stdlib
     PRIVATE
-        display
-        gfx
-        spi
+        oled-display
+        oled-gfx
+        oled-spi
 )
