@@ -1,60 +1,63 @@
 # SPDX-License-Identifier: MIT
 
 
-add_library(font
+add_library(oled-font
     font.c
 )
 
-target_include_directories(font
-    ../include
+target_include_directories(oled-font
+    PUBLIC
+        ../include
 )
 
-add_library(display
+add_library(oled-display
     display.c
 )
 
-target_include_directories(display
-    ../include
+target_include_directories(oled-display
+    PUBLIC
+        ../include
 )
 
-target_link_libraries(display
+target_link_libraries(oled-display
     PRIVATE
         pico_stdlib
         hardware_spi
 )
 
-add_library(spi
+add_library(oled-spi
     spi.c
 )
 
-target_include_directories(spi
-    ../include
+target_include_directories(oled-spi
+    PUBLIC
+        ../include
 )
 
-target_link_libraries(spi
+target_link_libraries(oled-spi
     PUBLIC
         hardware_spi
-    INTERFACE
         pico_stdlib
     PRIVATE
         hardware_gpio
 )
 
-add_library(gfx
+add_library(oled-gfx
     gfx.c
 )
 
-target_include_directories(gfx
-    ../include
+target_include_directories(oled-gfx
+    PUBLIC
+        ../include
 )
 
-target_link_libraries(gfx
+target_link_libraries(oled-gfx
     PUBLIC
         hardware_spi
         pico_stdlib
     PRIVATE
-        font
-        spi
+        oled-font
+        oled-spi
 )
 
 add_library(rp2040-oled
@@ -62,7 +65,8 @@ add_library(rp2040-oled
 )
 
 target_include_directories(rp2040-oled
-    ../include
+    PUBLIC
+        ../include
 )
 
 target_link_libraries(rp2040-oled
