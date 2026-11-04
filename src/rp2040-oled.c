@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "rp2040-oled-types.h"
+
 #include "display.h"
 #include "gfx.h"
 #include "spi.h"
@@ -83,77 +85,6 @@ static void rp2040_oled_display_init(rp2040_oled_t *oled) {
 
   oled->dirty_buf = malloc(oled->dirty_buf_size);
   memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
-}
-
-// sends only what changed, grouping neighboring changed columns into one write
-bool rp2040_oled_flush(rp2040_oled_t *oled) {
-  if (!oled->is_dirty)
-    return true;
-
-  for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
-    // start and length of the current run of changed columns
-    uint8_t xstart = 0;
-    uint8_t width = 0;
-
-    if (oled->use_doublebuf) {
-      // doublebuf: a column changed if dirty_buf and gdram differ
-      for (uint8_t x = 0; x < oled->width; x++) {
-        if (*(oled->gdram + (y * oled->width + x)) !=
-            *(oled->dirty_buf + (y * oled->width + x))) {
-          if (width == 0)
-            xstart = x;
-          width++;
-        } else {
-          // run ended, send it
-          if (width != 0) {
-            size_t gdram_offset = xstart + (y * oled->width);
-            rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
-
-            width = 0;
-          }
-        }
-      }
-    } else {
-      // no doublebuf: one dirty bit per column
-      for (uint8_t x = 0; x < oled->width; x++) {
-        uint8_t dirty_byte = oled->dirty_buf[y * (oled->width / 8) + x / 8];
-        if (dirty_byte & (1 << (x % 8))) {
-          if (width == 0)
-            xstart = x;
-          width++;
-        } else {
-          // run ended, send it
-          if (width != 0) {
-            size_t gdram_offset = xstart + (y * oled->width);
-            rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
-
-            width = 0;
-          }
-        }
-      }
-    }
-
-    // run reached the right edge
-    if (width != 0) {
-      size_t gdram_offset = xstart + (y * oled->width);
-      rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
-
-      width = 0;
-    }
-  }
-
-  oled->is_dirty = false;
-
-  // start the next flush with a clean bitmap. with doublebuf, gdram already
-  // matches
-  if (!oled->use_doublebuf) {
-    memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
-  }
-
-  oled->cursor.x = 0;
-  oled->cursor.y = 0;
-
-  return true;
 }
 
 // sets up the pins, resets the screen, then starts it

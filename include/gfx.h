@@ -3,7 +3,8 @@
  * Copyright 2023, Artem Savkov
  */
 #pragma once
-#include "rp2040-oled.h"
+
+#include "rp2040-oled-types.h"
 
 // sends `size` bytes of page y from gdram, starting at column x. with
 // doublebuf, copies that span from dirty_buf into gdram first
@@ -57,3 +58,6 @@ bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y,
 bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y,
                               uint8_t rx, uint8_t ry, rp2040_oled_color_t color,
                               bool fill, bool render);
+
+// sends everything that changed since the last flush
+bool rp2040_oled_flush(rp2040_oled_t *oled);

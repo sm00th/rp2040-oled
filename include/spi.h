@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: MIT
- * Copyright 2026, Ramzey Burdette
+ * 2026, Ramzey Burdette
  */
 #pragma once
 
@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "rp2040-oled.h"
+#include "rp2040-oled-types.h"
 
 void rp2040_spi_init(rp2040_oled_t *oled);
 

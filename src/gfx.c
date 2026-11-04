@@ -2,7 +2,6 @@
  * SPDX-License-Identifier: MIT
  * Copyright 2023, Artem Savkov
  */
-
 #include "gfx.h"
 
 #include <stdbool.h>
@@ -11,7 +10,7 @@
 #include <string.h>
 
 #include "font.h"
-#include "rp2040-oled.h"
+#include "rp2040-oled-types.h"
 #include "spi.h"
 
 // every drawing function ends up here. combines buf with the framebuffer at the
@@ -95,6 +94,7 @@ static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y,
   return rp2040_spi_write(oled, buf, sizeof(buf), true) == sizeof(buf);
 }
 
+// ! X
 // fills the framebuffer with fill_byte, one page at a time
 static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte,
                              bool render) {
@@ -121,6 +121,77 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte,
     rp2040_oled_flush(oled);
 
   rp2040_oled_free_data_buf(fill_buf);
+  return true;
+}
+
+// sends only what changed, grouping neighboring changed columns into one write
+bool rp2040_oled_flush(rp2040_oled_t *oled) {
+  if (!oled->is_dirty)
+    return true;
+
+  for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
+    // start and length of the current run of changed columns
+    uint8_t xstart = 0;
+    uint8_t width = 0;
+
+    if (oled->use_doublebuf) {
+      // doublebuf: a column changed if dirty_buf and gdram differ
+      for (uint8_t x = 0; x < oled->width; x++) {
+        if (*(oled->gdram + (y * oled->width + x)) !=
+            *(oled->dirty_buf + (y * oled->width + x))) {
+          if (width == 0)
+            xstart = x;
+          width++;
+        } else {
+          // run ended, send it
+          if (width != 0) {
+            size_t gdram_offset = xstart + (y * oled->width);
+            rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+
+            width = 0;
+          }
+        }
+      }
+    } else {
+      // no doublebuf: one dirty bit per column
+      for (uint8_t x = 0; x < oled->width; x++) {
+        uint8_t dirty_byte = oled->dirty_buf[y * (oled->width / 8) + x / 8];
+        if (dirty_byte & (1 << (x % 8))) {
+          if (width == 0)
+            xstart = x;
+          width++;
+        } else {
+          // run ended, send it
+          if (width != 0) {
+            size_t gdram_offset = xstart + (y * oled->width);
+            rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+
+            width = 0;
+          }
+        }
+      }
+    }
+
+    // run reached the right edge
+    if (width != 0) {
+      size_t gdram_offset = xstart + (y * oled->width);
+      rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+
+      width = 0;
+    }
+  }
+
+  oled->is_dirty = false;
+
+  // start the next flush with a clean bitmap. with doublebuf, gdram already
+  // matches
+  if (!oled->use_doublebuf) {
+    memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
+  }
+
+  oled->cursor.x = 0;
+  oled->cursor.y = 0;
+
   return true;
 }
 
@@ -163,7 +234,7 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
   uint8_t page = y / PAGE_BITS;
   uint8_t page_offset = y % PAGE_BITS;
   uint8_t bit_mask = 1 << page_offset;
-  uint8_t buf[1] = {0x00}; //! make this one byte
+  uint8_t buf[1] = {0x00};
   uint8_t *gdram = oled->use_doublebuf ? oled->dirty_buf : oled->gdram;
 
   if (x >= oled->width || y >= oled->height)
@@ -180,13 +251,13 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
   if (!rp2040_oled_set_position(oled, x, page * PAGE_BITS, render))
     return false;
 
-  if (!rp2040_oled_write_gdram(oled, buf, 1, color,
-                               render)) //! pass buf, not buf + 1
+  if (!rp2040_oled_write_gdram(oled, buf, 1, color, render))
     ret = false;
 
   return ret;
 }
 
+// ! X
 // vertical lines write whole bytes per page. every other line uses bresenham
 // with set_pixel
 bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
@@ -314,6 +385,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
   return true;
 }
 
+// ! X
 // outline = 4 lines. filled = one vertical line per column
 bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                                 uint8_t x1, uint8_t y1,
@@ -351,6 +423,7 @@ bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
   return true;
 }
 
+// ! X
 // clips the sprite to the screen, shifts it into a temporary copy if it isn't
 // page aligned, then writes it one page at a time
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite,
@@ -514,6 +587,7 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite,
   return ret;
 }
 
+// ! X
 // midpoint circle: walks one eighth of the circle and mirrors each point.
 // filled circles draw vertical lines between mirrored points
 bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y,
@@ -556,7 +630,7 @@ bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y,
 
   return true;
 }
-
+// ! X
 // midpoint ellipse: walks one quarter and mirrors each point. region 1 is the
 // flatter part near the top, region 2 the steeper part near the side
 bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y,

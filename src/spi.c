@@ -1,12 +1,15 @@
-#include "spi.h"
-
 /*
  * SPDX-License-Identifier: MIT
  * 2026, Ramzey Burdette
  */
+#include "spi.h"
+
+#include <stdbool.h>
 
 #include "hardware/gpio.h"
-#include <stdbool.h>
+#include "hardware/spi.h"
+
+#include "rp2040-oled-types.h"
 
 void rp2040_spi_init(rp2040_oled_t *oled) {
   spi_init(oled->spi, oled->baudrate);

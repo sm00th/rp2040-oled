@@ -3,6 +3,7 @@
  * Copyright 2023, Artem Savkov
  */
 #pragma once
+
 #include <stdint.h>
 
 // printable ascii starting at ' ' (32). each character is 5 column bytes with

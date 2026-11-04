@@ -2,8 +2,8 @@
  * SPDX-License-Identifier: MIT
  * Copyright 2023, Artem Savkov
  */
-
 #pragma once
+
 #include <stdint.h>
 #include <stdlib.h>
 

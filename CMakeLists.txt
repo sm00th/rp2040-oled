@@ -2,6 +2,10 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # initialize the SDK based on PICO_SDK_PATH
 # note: this must happen before project()
 include(pico_sdk_import.cmake)
@@ -13,18 +17,4 @@ pico_sdk_init()
 
 add_compile_options(-Wall -Wtype-limits)
 
-add_library(rp2040-oled
-    src/include/rp2040-oled.h
-    src/rp2040-oled.c
-    src/display.h
-    src/i2c.c
-    src/i2c.h
-    src/gfx.c
-    src/gfx.h
-    src/font.h
-)
-
-target_include_directories(rp2040-oled INTERFACE src/include)
-
-# Add pico_stdlib library which aggregates commonly used features
-target_link_libraries(rp2040-oled pico_stdlib hardware_i2c)
+add_subdirectory(src)

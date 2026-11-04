@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "rp2040-oled.h"
+#include "rp2040-oled-types.h"
 
 const uint8_t oled_sh1106_init[] = {OLED_CMD_DISPLAY_OFF,
                                     OLED_CMD_SET_DISPLAY_CLOCK,
