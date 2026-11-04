@@ -1,7 +1,10 @@
 #pragma once
 
-#include "include/rp2040-oled.h"
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+#include "rp2040-oled.h"
 
 void rp2040_spi_init(rp2040_oled_t *oled);
 

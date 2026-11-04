@@ -1,12 +1,10 @@
-/*
- * SPDX-License-Identifier: MIT
- * Copyright 2023, Artem Savkov
- */
+#include "display.h"
 
-#include "include/rp2040-oled.h"
+#include <stdint.h>
+#include <stdlib.h>
 
-// sh1106 startup commands, sent in this order with dc low. from adafruit's
-// circuitpython setup for the macropad
+#include "rp2040-oled.h"
+
 const uint8_t oled_sh1106_init[] = {OLED_CMD_DISPLAY_OFF,
                                     OLED_CMD_SET_DISPLAY_CLOCK,
                                     0x80, // clock divide and oscillator
@@ -31,3 +29,5 @@ const uint8_t oled_sh1106_init[] = {OLED_CMD_DISPLAY_OFF,
                                     OLED_CMD_SET_DISPLAY_NORMAL,
                                     OLED_CMD_SET_DISPLAY_RAM,
                                     OLED_CMD_DISPLAY_ON};
+
+const size_t oled_sh1106_init_len = sizeof(oled_sh1106_init);

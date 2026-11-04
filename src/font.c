@@ -1,14 +1,6 @@
-/*
- * SPDX-License-Identifier: MIT
- * Copyright 2023, Artem Savkov
- */
-
-
+#include "font.h"
 #include <stdint.h>
 
-// printable ascii starting at ' ' (32). each character is 5 column bytes with
-// bit 0 on top, so c starts at font_6x8 + (c - 32) * 5. write_string adds a
-// blank column, which makes it 6x8
 const uint8_t font_6x8[] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x5f, 0x06, 0x00, 0x07, 0x03,
     0x00, 0x07, 0x03, 0x24, 0x7e, 0x24, 0x7e, 0x24, 0x24, 0x2b, 0x6a, 0x12,

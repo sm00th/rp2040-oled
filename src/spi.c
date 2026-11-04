@@ -1,5 +1,5 @@
 #include "spi.h"
-#include <hardware/gpio.h>
+#include "hardware/gpio.h"
 #include <stdbool.h>
 
 void rp2040_spi_init(rp2040_oled_t *oled) {
@@ -35,12 +35,11 @@ size_t rp2040_spi_write(rp2040_oled_t *oled, const uint8_t *data, size_t len,
     gpio_put(oled->cs_pin, GPIO_LEVEL_HIGH);
     gpio_put(oled->dc_pin, GPIO_LEVEL_HIGH);
     return num_bytes_returned;
-  } else {
-    int count = 0; //! set from spi_write_blocking, or this always returns 0
+  } else { //! set from spi_write_blocking, or this always returns 0
     gpio_put(oled->dc_pin, GPIO_LEVEL_HIGH);
     gpio_put(oled->cs_pin, GPIO_LEVEL_LOW);
 
-    //! send data for len bytes with spi_write_blocking
+    int count = spi_write_blocking(oled->spi, data, len);
 
     gpio_put(oled->cs_pin, GPIO_LEVEL_HIGH);
     return count;

@@ -8,6 +8,7 @@
 
 #include "hardware/spi.h"
 #include "pico/stdlib.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -16,6 +17,7 @@
 
 #define GPIO_LEVEL_HIGH 1
 #define GPIO_LEVEL_LOW 0
+
 // ram is split into pages 8 pixels tall. one byte is one column of a page, bit
 // 0 on top
 #define PAGE_BITS 8
@@ -72,12 +74,13 @@ typedef enum {
 // one per display. set the config fields, and init fills in the rest
 typedef struct _rp2040_oled {
   // config: set before calling rp2040_oled_init
-  spi_inst_t *spi;
+  spi_inst_t *spi; // spi0 or spi1
   uint8_t sck_pin;
   uint8_t mosi_pin;
   uint8_t cs_pin;
-  uint8_t dc_pin; // low = commands, high = pixels
-  uint32_t baudrate;
+  uint8_t dc_pin;    // low = commands, high = pixels
+  uint32_t baudrate; // baudrate doesnt refer to 115200, refers to actual speed.
+                     // SPI at 10MHz
   uint8_t reset_pin; // PIN_UNDEF = not wired up
   uint8_t width;     // set by init
   uint8_t height;    // set by init
@@ -105,54 +108,18 @@ typedef struct _rp2040_oled {
 extern "C" {
 #endif
 
-
 // most drawing functions take `render`. false only changes the framebuffer, and
 // rp2040_oled_flush sends it later. true sends the change right away.
 
 // sets up spi, resets the screen, and sends the startup commands
 void rp2040_oled_init(rp2040_oled_t *oled);
-// clears the framebuffer and the screen
-bool rp2040_oled_clear(rp2040_oled_t *oled);
-// clears the framebuffer. the screen changes on the next flush
-bool rp2040_oled_clear_gdram(rp2040_oled_t *oled);
+
 // sets brightness, 0x00 to 0xff
 bool rp2040_oled_set_contrast(rp2040_oled_t *oled, uint8_t contrast);
+
 // turns the panel on or off. its ram is kept while off
 bool rp2040_oled_set_power(rp2040_oled_t *oled, bool enabled);
-// draws `len` characters in the 6x8 font. y rounds down to a page
-bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y,
-                              char *msg, size_t len, bool render);
-// turns one pixel on (WHITE) or off (BLACK)
-bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
-                           rp2040_oled_color_t color, bool render);
-// draws a sprite in page format: `width` bytes per page, bit 0 on top. clipped
-// at the screen edges
-bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite,
-                             int16_t x, int16_t y, uint8_t width,
-                             uint8_t height, rp2040_oled_color_t color,
-                             bool render);
-// draws a row by row 1 bit per pixel image, msb leftmost. pitch = bytes per row
-bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite,
-                                     int16_t x, int16_t y, uint8_t width,
-                                     uint8_t height, uint8_t pitch,
-                                     rp2040_oled_color_t color, bool render);
-// draws a line. both ends must be on screen
-bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
-                           uint8_t x1, uint8_t y1, rp2040_oled_color_t color,
-                           bool render);
-// draws a rectangle between two corners, outline or filled
-bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
-                                uint8_t x1, uint8_t y1,
-                                rp2040_oled_color_t color, bool fill,
-                                bool render);
-// draws a circle centered at (x, y) with radius r
-bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y,
-                             uint8_t r, rp2040_oled_color_t color, bool fill,
-                             bool render);
-// draws an ellipse centered at (x, y) with radii rx and ry
-bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y,
-                              uint8_t rx, uint8_t ry, rp2040_oled_color_t color,
-                              bool fill, bool render);
+
 // sends everything that changed since the last flush
 bool rp2040_oled_flush(rp2040_oled_t *oled);
 

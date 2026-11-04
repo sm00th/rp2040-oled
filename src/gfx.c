@@ -3,161 +3,16 @@
  * Copyright 2023, Artem Savkov
  */
 
+#include "gfx.h"
+
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "font.h"
+#include "rp2040-oled.h"
 #include "spi.h"
-
-static uint8_t *rp2040_oled_alloc_data_buf(size_t size) {
-
-  return (uint8_t *)malloc(size);
-}
-
-static void rp2040_oled_free_data_buf(uint8_t *buf) { free(buf); }
-
-// moves the cursor to column x and the page holding pixel row y. with render,
-// also moves the screen's write position to match
-static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y,
-                                     bool render) {
-  uint8_t buf[3];
-
-  y /= PAGE_BITS;
-
-  oled->cursor.x = x;
-  oled->cursor.y = y;
-
-  if (!render)
-    return true;
-
-  // the screen shows columns 2 to 129 of the sh1106's 132 column ram, so screen
-  // column = x + 2. x stays as is because the cursor and framebuffer start at 0
-  uint8_t column = x + 2;
-
-  // page address, then the column split into two nibbles
-  buf[0] = OLED_CMD_SET_PAGE_ADDR | y;
-  buf[1] = OLED_CMD_SET_LC_ADDR | (column & 0x0f);
-  buf[2] = OLED_CMD_SET_HC_ADDR | (column >> 4);
-
-  return rp2040_spi_write(oled, buf, sizeof(buf), true) == sizeof(buf);
-}
-
-// sends `size` bytes of page y from gdram, starting at column x. with
-// doublebuf, copies that span from dirty_buf into gdram first
-static bool rp2040_oled_render_gdram(rp2040_oled_t *oled, uint8_t x, uint8_t y,
-                                     size_t gdram_offset, uint8_t size) {
-  uint8_t *buf = NULL;
-
-  if (oled->use_doublebuf)
-    memcpy(oled->gdram + gdram_offset, oled->dirty_buf + gdram_offset, size);
-
-  buf = rp2040_oled_alloc_data_buf(size);
-  memcpy(buf, oled->gdram + gdram_offset, size);
-
-  // set_position takes a pixel row, not a page
-  if (!rp2040_oled_set_position(oled, x, y * PAGE_BITS, true)) {
-    return false;
-  }
-  if (rp2040_spi_write(oled, buf, size, false) != size) {
-    rp2040_oled_free_data_buf(buf);
-    return false;
-  }
-
-  rp2040_oled_free_data_buf(buf);
-  return true;
-}
-
-// sends only what changed, grouping neighboring changed columns into one write
-bool rp2040_oled_flush(rp2040_oled_t *oled) {
-  if (!oled->is_dirty)
-    return true;
-
-  for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
-    // start and length of the current run of changed columns
-    uint8_t xstart = 0;
-    uint8_t width = 0;
-
-    if (oled->use_doublebuf) {
-      // doublebuf: a column changed if dirty_buf and gdram differ
-      for (uint8_t x = 0; x < oled->width; x++) {
-        if (*(oled->gdram + (y * oled->width + x)) !=
-            *(oled->dirty_buf + (y * oled->width + x))) {
-          if (width == 0)
-            xstart = x;
-          width++;
-        } else {
-          // run ended, send it
-          if (width != 0) {
-            size_t gdram_offset = xstart + (y * oled->width);
-            rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
-
-            width = 0;
-          }
-        }
-      }
-    } else {
-      // no doublebuf: one dirty bit per column, and bytes that are 0 get
-      // skipped
-      for (uint8_t xpage = 0; xpage < oled->width / 8; xpage++) {
-        uint8_t page = oled->dirty_buf[y * (oled->width / 8) + xpage];
-        if (page) { // ! bug to fix
-          for (uint8_t dx = 0; dx < 8; dx++) {
-            if (page & 1 << dx) {
-              if (width == 0) {
-                xstart = xpage * 8 + dx;
-              }
-              width++;
-            } else {
-              // run ended, send it
-              if (width != 0) {
-                size_t gdram_offset = xstart + (y * oled->width);
-                rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
-
-                width = 0;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // run reached the right edge
-    if (width != 0) {
-      size_t gdram_offset = xstart + (y * oled->width);
-      rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
-
-      width = 0;
-    }
-  }
-
-  oled->is_dirty = false;
-
-  // start the next flush with a clean bitmap. with doublebuf, gdram already
-  // matches
-  if (!oled->use_doublebuf) {
-    memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
-  }
-
-  oled->cursor.x = 0;
-  oled->cursor.y = 0;
-
-  return true;
-}
-
-// sends every page of gdram, dirty or not
-bool rp2040_oled_force_flush(rp2040_oled_t *oled) {
-  for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
-    size_t gdram_offset = y * oled->width;
-    rp2040_oled_render_gdram(oled, 0, y, gdram_offset, oled->width);
-  }
-
-  oled->is_dirty = false;
-
-  oled->cursor.x = 0;
-  oled->cursor.y = 0;
-
-  return true;
-}
 
 // every drawing function ends up here. combines buf with the framebuffer at the
 // cursor, then marks those columns dirty or, with render, sends them. buf gets
@@ -206,6 +61,38 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf,
   // position
   return oled->use_doublebuf ? rp2040_oled_flush(oled)
                              : rp2040_spi_write(oled, buf, size, false) == size;
+}
+
+static uint8_t *rp2040_oled_alloc_data_buf(size_t size) {
+  return (uint8_t *)malloc(size);
+}
+
+static void rp2040_oled_free_data_buf(uint8_t *buf) { free(buf); }
+
+// moves the cursor to column x and the page holding pixel row y. with render,
+// also moves the screen's write position to match
+static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y,
+                                     bool render) {
+  uint8_t buf[3];
+
+  y /= PAGE_BITS;
+
+  oled->cursor.x = x;
+  oled->cursor.y = y;
+
+  if (!render)
+    return true;
+
+  // the screen shows columns 2 to 129 of the sh1106's 132 column ram, so screen
+  // column = x + 2. x stays as is because the cursor and framebuffer start at 0
+  uint8_t column = x + 2;
+
+  // page address, then the column split into two nibbles
+  buf[0] = OLED_CMD_SET_PAGE_ADDR | y;
+  buf[1] = OLED_CMD_SET_LC_ADDR | (column & 0x0f);
+  buf[2] = OLED_CMD_SET_HC_ADDR | (column >> 4);
+
+  return rp2040_spi_write(oled, buf, sizeof(buf), true) == sizeof(buf);
 }
 
 // fills the framebuffer with fill_byte, one page at a time
@@ -462,14 +349,6 @@ bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
     rp2040_oled_flush(oled);
 
   return true;
-}
-
-bool rp2040_oled_clear(rp2040_oled_t *oled) {
-  return rp2040_oled_fill(oled, 0x00, true);
-}
-
-bool rp2040_oled_clear_gdram(rp2040_oled_t *oled) {
-  return rp2040_oled_fill(oled, 0x00, false);
 }
 
 // clips the sprite to the screen, shifts it into a temporary copy if it isn't
@@ -759,5 +638,36 @@ bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y,
   if (render)
     rp2040_oled_flush(oled);
 
+  return true;
+}
+
+bool rp2040_oled_clear(rp2040_oled_t *oled) {
+  return rp2040_oled_fill(oled, 0x00, true);
+}
+
+bool rp2040_oled_clear_gdram(rp2040_oled_t *oled) {
+  return rp2040_oled_fill(oled, 0x00, false);
+}
+
+bool rp2040_oled_render_gdram(rp2040_oled_t *oled, uint8_t x, uint8_t y,
+                              size_t gdram_offset, uint8_t size) {
+  uint8_t *buf = NULL;
+
+  if (oled->use_doublebuf)
+    memcpy(oled->gdram + gdram_offset, oled->dirty_buf + gdram_offset, size);
+
+  buf = rp2040_oled_alloc_data_buf(size);
+  memcpy(buf, oled->gdram + gdram_offset, size);
+
+  // set_position takes a pixel row, not a page
+  if (!rp2040_oled_set_position(oled, x, y * PAGE_BITS, true)) {
+    return false;
+  }
+  if (rp2040_spi_write(oled, buf, size, false) != size) {
+    rp2040_oled_free_data_buf(buf);
+    return false;
+  }
+
+  rp2040_oled_free_data_buf(buf);
   return true;
 }
