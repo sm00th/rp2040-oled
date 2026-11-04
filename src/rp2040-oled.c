@@ -114,26 +114,20 @@ bool rp2040_oled_flush(rp2040_oled_t *oled) {
         }
       }
     } else {
-      // no doublebuf: one dirty bit per column, and bytes that are 0 get
-      // skipped
-      for (uint8_t xpage = 0; xpage < oled->width / 8; xpage++) {
-        uint8_t page = oled->dirty_buf[y * (oled->width / 8) + xpage];
-        if (page) { // ! bug to fix
-          for (uint8_t dx = 0; dx < 8; dx++) {
-            if (page & 1 << dx) {
-              if (width == 0) {
-                xstart = xpage * 8 + dx;
-              }
-              width++;
-            } else {
-              // run ended, send it
-              if (width != 0) {
-                size_t gdram_offset = xstart + (y * oled->width);
-                rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
+      // no doublebuf: one dirty bit per column
+      for (uint8_t x = 0; x < oled->width; x++) {
+        uint8_t dirty_byte = oled->dirty_buf[y * (oled->width / 8) + x / 8];
+        if (dirty_byte & (1 << (x % 8))) {
+          if (width == 0)
+            xstart = x;
+          width++;
+        } else {
+          // run ended, send it
+          if (width != 0) {
+            size_t gdram_offset = xstart + (y * oled->width);
+            rp2040_oled_render_gdram(oled, xstart, y, gdram_offset, width);
 
-                width = 0;
-              }
-            }
+            width = 0;
           }
         }
       }
