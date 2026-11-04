@@ -1,3 +1,7 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright 2026, Ramzey Burdette
+ */
 #pragma once
 
 #include <stdbool.h>

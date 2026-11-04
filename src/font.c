@@ -1,3 +1,8 @@
+/*
+ * SPDX-License-Identifier: MIT
+ * Copyright 2023, Artem Savkov
+ */
+
 #include "font.h"
 #include <stdint.h>
 

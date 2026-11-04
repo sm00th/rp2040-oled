@@ -1,4 +1,10 @@
 #include "spi.h"
+
+/*
+ * SPDX-License-Identifier: MIT
+ * 2026, Ramzey Burdette
+ */
+
 #include "hardware/gpio.h"
 #include <stdbool.h>
 
@@ -35,7 +41,7 @@ size_t rp2040_spi_write(rp2040_oled_t *oled, const uint8_t *data, size_t len,
     gpio_put(oled->cs_pin, GPIO_LEVEL_HIGH);
     gpio_put(oled->dc_pin, GPIO_LEVEL_HIGH);
     return num_bytes_returned;
-  } else { //! set from spi_write_blocking, or this always returns 0
+  } else {
     gpio_put(oled->dc_pin, GPIO_LEVEL_HIGH);
     gpio_put(oled->cs_pin, GPIO_LEVEL_LOW);
 

@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: MIT
- * Copyright 2023, Artem Savkov
+ * 2026, Artem Savkov, Ramzey Burdette
  */
 
 #ifndef _RP2040_OLED_H
