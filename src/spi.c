@@ -2,6 +2,10 @@
  * SPDX-License-Identifier: MIT
  * 2026, Ramzey Burdette
  */
+/**
+ * @file spi.c
+ * @brief SPI transport between the RP2040 and the display controller.
+ */
 #include "spi.h"
 
 #include <stdbool.h>
@@ -32,8 +36,6 @@ void rp2040_spi_init(rp2040_oled_t *oled) {
   }
 }
 
-// because most commands will be initial or very purposeful, commands can be
-// blocking
 size_t rp2040_spi_write(rp2040_oled_t *oled, const uint8_t *data, size_t len,
                         bool is_command) {
 

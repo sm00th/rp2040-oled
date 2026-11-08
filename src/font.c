@@ -2,6 +2,10 @@
  * SPDX-License-Identifier: MIT
  * Copyright 2023, Artem Savkov
  */
+/**
+ * @file font.c
+ * @brief The 6x8 bitmap font table.
+ */
 #include "font.h"
 
 #include <stdint.h>

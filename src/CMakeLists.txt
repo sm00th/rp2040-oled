@@ -20,8 +20,7 @@ target_include_directories(oled-display
 )
 
 target_link_libraries(oled-display
-    PRIVATE
-        pico_stdlib
+    PUBLIC
         hardware_spi
 )
 
@@ -37,7 +36,6 @@ target_include_directories(oled-spi
 target_link_libraries(oled-spi
     PUBLIC
         hardware_spi
-        pico_stdlib
     PRIVATE
         hardware_gpio
 )
@@ -54,7 +52,6 @@ target_include_directories(oled-gfx
 target_link_libraries(oled-gfx
     PUBLIC
         hardware_spi
-        pico_stdlib
     PRIVATE
         oled-font
         oled-spi
@@ -72,8 +69,9 @@ target_include_directories(rp2040-oled
 target_link_libraries(rp2040-oled
     PUBLIC
         hardware_spi
-        pico_stdlib
     PRIVATE
+        hardware_gpio
+        pico_time
         oled-display
         oled-gfx
         oled-spi

@@ -2,11 +2,19 @@
  * SPDX-License-Identifier: MIT
  * Copyright 2023, Artem Savkov
  */
+/**
+ * @file rp2040-oled.c
+ * @brief Display startup, reset, and panel commands.
+ */
 #include "rp2040-oled.h"
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include "hardware/gpio.h"
+#include "pico/time.h"
 
 #include "rp2040-oled-types.h"
 
@@ -14,7 +22,14 @@
 #include "gfx.h"
 #include "spi.h"
 
-// sends every page of gdram, dirty or not
+/**
+ * @brief Sends every page of gdram to the screen, dirty or not.
+ *
+ * Clears `is_dirty` and resets the cursor to (0, 0).
+ *
+ * @param oled Display to flush.
+ * @return Always true.
+ */
 static bool rp2040_oled_force_flush(rp2040_oled_t *oled) {
   for (uint8_t y = 0; y < oled->height / PAGE_BITS; y++) {
     size_t gdram_offset = y * oled->width;
@@ -29,20 +44,40 @@ static bool rp2040_oled_force_flush(rp2040_oled_t *oled) {
   return true;
 }
 
-// sends one command byte
+/**
+ * @brief Sends one command byte.
+ *
+ * @param oled Display to send to.
+ * @param cmd Command byte.
+ * @return true if the byte was sent.
+ */
 static bool rp2040_oled_write_command(rp2040_oled_t *oled, uint8_t cmd) {
   uint8_t buf[] = {cmd};
   return rp2040_spi_write(oled, buf, sizeof(buf), true) == sizeof(buf);
 }
 
-// sends a command and its argument byte
+/**
+ * @brief Sends a command byte followed by its argument byte.
+ *
+ * @param oled Display to send to.
+ * @param cmd Command byte.
+ * @param arg Argument byte.
+ * @return true if both bytes were sent.
+ */
 static bool rp2040_oled_write_command_with_arg(rp2040_oled_t *oled, uint8_t cmd,
                                                uint8_t arg) {
   uint8_t buf[] = {cmd, arg};
   return rp2040_spi_write(oled, buf, sizeof(buf), true) == sizeof(buf);
 }
 
-// pulses reset low, then gives the controller time to come back up
+/**
+ * @brief Pulses the reset pin low, then waits for the controller to come back
+ * up.
+ *
+ * Blocks for about 60 ms.
+ *
+ * @param oled Display to reset. `reset_pin` must be wired up.
+ */
 static void rp2040_oled_reset(rp2040_oled_t *oled) {
   gpio_put(oled->reset_pin, GPIO_LEVEL_LOW);
   sleep_ms(50);
@@ -50,8 +85,17 @@ static void rp2040_oled_reset(rp2040_oled_t *oled) {
   sleep_ms(10);
 }
 
-// starts the 128x64 sh1106: sends its startup commands, allocates both buffers,
-// and blanks the screen
+/**
+ * @brief Starts the 128x64 SH1106.
+ *
+ * Sends the startup commands, applies `invert` and `flip`, allocates gdram and
+ * dirty_buf, and blanks the screen.
+ *
+ * @param oled Display to start.
+ * @note FLIP_BOTH only flips horizontally (see the comment on the flip check).
+ * @warning dirty_buf is allocated after the initial flush, so this is only
+ *          safe with `use_doublebuf` false.
+ */
 static void rp2040_oled_display_init(rp2040_oled_t *oled) {
   oled->width = 128;
   oled->height = 64;
@@ -87,7 +131,6 @@ static void rp2040_oled_display_init(rp2040_oled_t *oled) {
   memset(oled->dirty_buf, 0x00, oled->dirty_buf_size);
 }
 
-// sets up the pins, resets the screen, then starts it
 void rp2040_oled_init(rp2040_oled_t *oled) {
   rp2040_spi_init(oled);
 

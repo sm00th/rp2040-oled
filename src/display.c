@@ -2,7 +2,10 @@
  * SPDX-License-Identifier: MIT
  * Copyright 2023, Artem Savkov
  */
-
+/**
+ * @file display.c
+ * @brief SH1106 startup command sequence.
+ */
 #include "display.h"
 
 #include <stdint.h>

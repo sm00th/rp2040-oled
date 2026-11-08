@@ -2,6 +2,10 @@
  * SPDX-License-Identifier: MIT
  * Copyright 2023, Artem Savkov
  */
+/**
+ * @file gfx.c
+ * @brief Framebuffer drawing and flushing.
+ */
 #include "gfx.h"
 
 #include <stdbool.h>
@@ -13,9 +17,23 @@
 #include "rp2040-oled-types.h"
 #include "spi.h"
 
-// every drawing function ends up here. combines buf with the framebuffer at the
-// cursor, then marks those columns dirty or, with render, sends them. buf gets
-// overwritten with the combined bytes
+/**
+ * @brief Writes bytes into the framebuffer at the cursor.
+ *
+ * Every drawing function ends up here. Combines @p buf with the framebuffer
+ * according to @p color, then either marks those columns dirty or, with
+ * @p render, sends them. Advances the cursor by @p size columns.
+ *
+ * @param oled Display to draw on.
+ * @param[in,out] buf Bytes to write, one per column. Overwritten with the
+ *                    combined bytes.
+ * @param size Number of bytes in @p buf.
+ * @param color How @p buf combines with the framebuffer.
+ * @param render true to send the change right away. Without doublebuf, the
+ *               screen's write position must already match the cursor (see
+ *               rp2040_oled_set_position()).
+ * @return false if the write would run past the right edge or the send fails.
+ */
 static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf,
                                     size_t size, rp2040_oled_color_t color,
                                     bool render) {
@@ -62,14 +80,32 @@ static bool rp2040_oled_write_gdram(rp2040_oled_t *oled, uint8_t *buf,
                              : rp2040_spi_write(oled, buf, size, false) == size;
 }
 
+/**
+ * @brief Allocates a scratch buffer for pixel data.
+ *
+ * @param size Bytes to allocate.
+ * @return The buffer. Not checked for NULL.
+ */
 static uint8_t *rp2040_oled_alloc_data_buf(size_t size) {
   return (uint8_t *)malloc(size);
 }
 
+/**
+ * @brief Frees a buffer from rp2040_oled_alloc_data_buf().
+ *
+ * @param buf Buffer to free.
+ */
 static void rp2040_oled_free_data_buf(uint8_t *buf) { free(buf); }
 
-// moves the cursor to column x and the page holding pixel row y. with render,
-// also moves the screen's write position to match
+/**
+ * @brief Moves the cursor to column @p x and the page holding pixel row @p y.
+ *
+ * @param oled Display to move on.
+ * @param x Column.
+ * @param y Pixel row. Rounds down to its page.
+ * @param render true to also move the screen's write position to match.
+ * @return true on success, false if the command couldn't be sent.
+ */
 static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y,
                                      bool render) {
   uint8_t buf[3];
@@ -94,8 +130,14 @@ static bool rp2040_oled_set_position(rp2040_oled_t *oled, uint8_t x, uint8_t y,
   return rp2040_spi_write(oled, buf, sizeof(buf), true) == sizeof(buf);
 }
 
-// ! X
-// fills the framebuffer with fill_byte, one page at a time
+/**
+ * @brief Fills the framebuffer with one byte, one page at a time.
+ *
+ * @param oled Display to fill.
+ * @param fill_byte Byte written to every column of every page.
+ * @param render true to flush right after.
+ * @return false if a write fails.
+ */
 static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte,
                              bool render) {
   uint8_t *fill_buf;
@@ -124,7 +166,6 @@ static bool rp2040_oled_fill(rp2040_oled_t *oled, uint8_t fill_byte,
   return true;
 }
 
-// sends only what changed, grouping neighboring changed columns into one write
 bool rp2040_oled_flush(rp2040_oled_t *oled) {
   if (!oled->is_dirty)
     return true;
@@ -195,9 +236,6 @@ bool rp2040_oled_flush(rp2040_oled_t *oled) {
   return true;
 }
 
-// each character is a blank column plus 5 font columns, drawn with OR so the
-// background stays. characters below ' ' (32) aren't checked and read outside
-// the font table
 bool rp2040_oled_write_string(rp2040_oled_t *oled, uint8_t x, uint8_t y,
                               char *msg, size_t len, bool render) {
   uint8_t *buf;
@@ -257,9 +295,6 @@ bool rp2040_oled_set_pixel(rp2040_oled_t *oled, uint8_t x, uint8_t y,
   return ret;
 }
 
-// ! X
-// vertical lines write whole bytes per page. every other line uses bresenham
-// with set_pixel
 bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                            uint8_t x1, uint8_t y1, rp2040_oled_color_t color,
                            bool render) {
@@ -273,7 +308,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
   // white starts off and sets bits, black starts on and clears them, to match
   // write_gdram
   uint8_t bit_mask = (color == OLED_COLOR_WHITE) ? 0x00 : 0xff;
-  uint8_t buf[1] = {0x00}; //! make this one byte
+  uint8_t buf[1] = {0x00};
 
   if (x0 >= oled->width || x1 >= oled->width || y0 >= oled->height ||
       y1 >= oled->height)
@@ -292,8 +327,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
       }
       rp2040_oled_set_position(oled, x0, y0, render);
       buf[0] = bit_mask;
-      rp2040_oled_write_gdram(oled, buf, 1, color,
-                              render); //! pass buf, not buf + 1
+      rp2040_oled_write_gdram(oled, buf, 1, color, render);
     } else {
       // across pages: partial top byte, full middle bytes, partial bottom byte
       uint8_t tshift, bshift, y;
@@ -322,8 +356,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
         }
         rp2040_oled_set_position(oled, x0, y, false);
         buf[0] = bit_mask;
-        rp2040_oled_write_gdram(oled, buf, 1, color,
-                                false); //! pass buf, not buf + 1
+        rp2040_oled_write_gdram(oled, buf, 1, color, false);
         y += tshift;
       }
 
@@ -347,8 +380,7 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
         }
         rp2040_oled_set_position(oled, x0, y, false);
         buf[0] = bit_mask;
-        rp2040_oled_write_gdram(oled, buf, 1, color,
-                                false); //! pass buf, not buf + 1
+        rp2040_oled_write_gdram(oled, buf, 1, color, false);
         y += bshift;
       }
 
@@ -385,8 +417,6 @@ bool rp2040_oled_draw_line(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
   return true;
 }
 
-// ! X
-// outline = 4 lines. filled = one vertical line per column
 bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
                                 uint8_t x1, uint8_t y1,
                                 rp2040_oled_color_t color, bool fill,
@@ -423,7 +453,6 @@ bool rp2040_oled_draw_rectangle(rp2040_oled_t *oled, uint8_t x0, uint8_t y0,
   return true;
 }
 
-// ! X
 // clips the sprite to the screen, shifts it into a temporary copy if it isn't
 // page aligned, then writes it one page at a time
 bool rp2040_oled_draw_sprite(rp2040_oled_t *oled, const uint8_t *sprite,
@@ -548,7 +577,6 @@ out:
   return ret;
 }
 
-// converts a row by row bitmap to page format, then draws it with draw_sprite
 bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite,
                                      int16_t x, int16_t y, uint8_t width,
                                      uint8_t height, uint8_t pitch,
@@ -587,7 +615,6 @@ bool rp2040_oled_draw_sprite_pitched(rp2040_oled_t *oled, uint8_t *sprite,
   return ret;
 }
 
-// ! X
 // midpoint circle: walks one eighth of the circle and mirrors each point.
 // filled circles draw vertical lines between mirrored points
 bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y,
@@ -630,7 +657,7 @@ bool rp2040_oled_draw_circle(rp2040_oled_t *oled, int16_t x, int16_t y,
 
   return true;
 }
-// ! X
+
 // midpoint ellipse: walks one quarter and mirrors each point. region 1 is the
 // flatter part near the top, region 2 the steeper part near the side
 bool rp2040_oled_draw_ellipse(rp2040_oled_t *oled, int16_t x, int16_t y,
